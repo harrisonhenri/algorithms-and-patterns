@@ -1,7 +1,7 @@
 /**
  * Divides business logic or huge class into separate class hierarchies that can be developed independently.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

@@ -1,7 +1,7 @@
 /**
  * Allows adding new behaviors to objects dynamically by placing them inside special wrapper objects, called decorators.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

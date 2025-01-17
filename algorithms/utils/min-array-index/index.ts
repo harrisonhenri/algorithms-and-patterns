@@ -1,6 +1,6 @@
 /**
  * Finds the minimum element index in an array.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  *
  */

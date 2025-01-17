@@ -1,7 +1,7 @@
 /**
  * Specify an implementation skeleton of an algorithm in an abstract class but letting some pendent steps (abstract methods).
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

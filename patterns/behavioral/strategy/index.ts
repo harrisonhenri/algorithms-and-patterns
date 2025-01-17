@@ -1,7 +1,7 @@
 /**
  * Open the class (in the sense of Open-closed principle) to use new functionalities. Its use is recommended when the class needs to use a family of algotithms.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

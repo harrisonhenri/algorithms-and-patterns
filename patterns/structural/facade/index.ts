@@ -1,7 +1,7 @@
 /**
  * This pattern is used to avoid the client classes to know so much of internal classes of the system.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

@@ -1,23 +1,28 @@
-import { partition } from "../../utils/partition";
 import { timer } from "../../utils/timer";
 
+const merge = (a: number[], b: number[]) => {
+  let i = 0;
+  let j = 0;
+  const result = [];
+
+  while (i < a.length && j < b.length) {
+    result.push(a[i] < b[j] ? a[i++] : b[j++]);
+  }
+
+  return result.concat(i < a.length ? a.slice(i) : b.slice(j));
+};
+
 /**
- * Sorts the array with a O(nlgn) time complexity and O(nlgn) space complexity using comparisons and divide to conquer approach.
- * This algorithm generally outperforms heapsort in practice.
- * @date 21/06/2023 - 00:01:00
+ * Sorts the array with a O(nlgn) time complexity and O(n) space complexity using comparisons and divide to conquer approach.
+ * @date 21/06/2023 - 00:00:00
  *
  */
-const quickSort = (array: number[], p = 0, r = array.length - 1) => {
-  while (p < r) {
-    const pivot = partition(array, p, r);
-
-    if (pivot - p < r - pivot) {
-      quickSort(array, p, pivot - 1);
-      p = pivot + 1;
-    } else {
-      quickSort(array, pivot + 1, r);
-      r = pivot - 1;
-    }
+const mergeSort = (array: number[]) => {
+  if (array.length > 1) {
+    const middle = Math.floor(array.length / 2);
+    const left = mergeSort(array.slice(0, middle));
+    const right = mergeSort(array.slice(middle));
+    array = merge(left, right);
   }
 
   return array;
@@ -25,7 +30,7 @@ const quickSort = (array: number[], p = 0, r = array.length - 1) => {
 
 console.log(
   timer(() =>
-    quickSort([
+    mergeSort([
       499, 498, 497, 496, 495, 494, 493, 492, 491, 490, 489, 488, 487, 486, 485,
       484, 483, 482, 481, 480, 479, 478, 477, 476, 475, 474, 473, 472, 471, 470,
       469, 468, 467, 466, 465, 464, 463, 462, 461, 460, 459, 458, 457, 456, 455,

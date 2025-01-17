@@ -2,7 +2,7 @@
  * Insert an intermediate object called a proxy (that implements the same interfaces as the base object) between a base object and the client.
  * The proxy is also used in: protocols to comunicate with a remore client (stubs), memory allocation, etc.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

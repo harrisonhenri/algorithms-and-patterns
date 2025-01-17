@@ -2,7 +2,7 @@ import { digitCount } from "../digit-count";
 
 /**
  * Given an array, finds the number of digits of the largest number.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 export const maxDigitCount = (array: number[]) => {

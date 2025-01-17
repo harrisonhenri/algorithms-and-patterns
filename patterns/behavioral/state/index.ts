@@ -1,7 +1,7 @@
 /**
  * Allow an object to change its behavior according to its internal state. So it seems that the object has changed its type, that is, it is a new object of another class.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

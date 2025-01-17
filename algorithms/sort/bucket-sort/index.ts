@@ -5,7 +5,7 @@ import { insertionSort } from "../insertion-sort";
 /**
  * Sorts the array with a O(n) time complexity and O(n) space complexity.
  * The numbers must come from a uniform distribution over the interval [0,1).
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 const bucketSort = (array: number[]) => {

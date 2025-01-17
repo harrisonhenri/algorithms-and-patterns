@@ -1,32 +1,26 @@
-import { getDigit } from "../../utils/get-digit";
-import { maxDigitCount } from "../../utils/max-digit-count";
+import { swap } from "../../utils/swap";
 import { timer } from "../../utils/timer";
 
 /**
- * Sorts the array with a O(n) time complexity and O(n) space complexity.
- * @date 21/06/2023 - 00:00:00
+ * Sorts the array with a O(n2) time complexity and O(1) space complexity.
+ * The numbers must come from a uniform distribution over the interval [0,1).
+ * @date 13/01/2025 - 00:00:00
  *
  */
-const radixSort = (array: number[]) => {
-  let maxDigitValue = maxDigitCount(array);
-
-  for (let k = 0; k < maxDigitValue; k++) {
-    let digitBuckets: number[][] = Array.from({ length: 10 }, () => []);
-
-    for (let i = 0; i < array.length; i++) {
-      let digit = getDigit(array[i], k);
-      digitBuckets[digit].push(array[i]);
+const bubbleSort = (array: number[]) => {
+  for (let i = 0, arrayLength = array.length; i < arrayLength; i++) {
+    for (let j = 0; j < arrayLength - i - 1; j++) {
+      if (array[j] > array[j + 1]) {
+        swap(array, j, j + 1);
+      }
     }
-
-    array = ([] as number[]).concat(...digitBuckets);
   }
-
   return array;
 };
 
 console.log(
   timer(() =>
-    radixSort([
+    bubbleSort([
       499, 498, 497, 496, 495, 494, 493, 492, 491, 490, 489, 488, 487, 486, 485,
       484, 483, 482, 481, 480, 479, 478, 477, 476, 475, 474, 473, 472, 471, 470,
       469, 468, 467, 466, 465, 464, 463, 462, 461, 460, 459, 458, 457, 456, 455,

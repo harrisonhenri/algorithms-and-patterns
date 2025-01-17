@@ -1,7 +1,7 @@
 /**
  * Allows composing objects into a tree-like structure and work with the it as if it was a singular object.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 

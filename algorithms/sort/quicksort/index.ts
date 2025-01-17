@@ -1,39 +1,32 @@
-import { maxArrayIndex } from "../../utils/max-array-index";
+import { partition } from "../../utils/partition";
 import { timer } from "../../utils/timer";
 
 /**
- * Sorts the array with a O(n) time complexity and O(n) space complexity.
- * The numbers must be integers distributed in a small ranger.
- * @date 21/06/2023 - 00:01:00
+ * Sorts the array with a O(nlgn) time complexity and O(nlgn) space complexity using comparisons and divide to conquer approach.
+ * This algorithm generally outperforms heapsort in practice.  This algorithm is often favored for typical applications on average cases,
+ * while mergesort is a better choice when stability, parallelism, or worst-case guarantees are essential
+ * @date 21/06/2023 - 00:00:00
  *
  */
-export const countingSort = (array: number[]) => {
-  const maxIndex = maxArrayIndex(array);
-  const maxValue = array[maxIndex];
-  let counter = new Array(maxValue + 1).fill(0);
-  let result = [];
-  let numItemsBefore = 0;
+const quickSort = (array: number[], left = 0, right = array.length - 1) => {
+  if (array.length > 1) {
+    const index = partition(array, left, right); // Find the partition index
 
-  for (const element of array) {
-    counter[element]++;
+    if (left < index - 1) {
+      quickSort(array, left, index - 1);
+    }
+
+    if (index < right) {
+      quickSort(array, index, right);
+    }
   }
 
-  for (const [index, count] of counter.entries()) {
-    counter[index] = numItemsBefore;
-    numItemsBefore += count;
-  }
-
-  for (const element of array) {
-    result[counter[element]] = element;
-    counter[element]++;
-  }
-
-  return result;
+  return array;
 };
 
 console.log(
   timer(() =>
-    countingSort([
+    quickSort([
       499, 498, 497, 496, 495, 494, 493, 492, 491, 490, 489, 488, 487, 486, 485,
       484, 483, 482, 481, 480, 479, 478, 477, 476, 475, 474, 473, 472, 471, 470,
       469, 468, 467, 466, 465, 464, 463, 462, 461, 460, 459, 458, 457, 456, 455,

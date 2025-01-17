@@ -1,7 +1,7 @@
 /**
  * This pattern is used to add functionalities without change the classes.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 interface Visitor {

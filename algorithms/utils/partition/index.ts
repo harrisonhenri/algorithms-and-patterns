@@ -1,23 +1,26 @@
-import { swap } from "../swap";
-
 /**
  * Return the pivot in a array partition.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
-export const partition = (array: number[], p: number, r: number) => {
-  const pivot = r;
+export const partition = (array: number[], left: number, right: number) => {
+  const pivot = array[Math.floor((right + left) / 2)];
 
-  let dividerPosition = p;
+  while (left <= right) {
+    while (array[left] < pivot) {
+      left++;
+    }
 
-  for (let i = p; i < r; i++) {
-    if (array[i] < array[pivot]) {
-      swap(array, i, dividerPosition);
-      dividerPosition++;
+    while (array[right] > pivot) {
+      right--;
+    }
+
+    if (left <= right) {
+      [array[left], array[right]] = [array[right], array[left]]; // Swap using destructuring
+      left++;
+      right--;
     }
   }
 
-  swap(array, dividerPosition, pivot);
-
-  return dividerPosition;
+  return left;
 };

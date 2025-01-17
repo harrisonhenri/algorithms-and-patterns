@@ -3,7 +3,7 @@ import { timer } from "../../utils/timer";
 
 /**
  * Sorts the array with a O(nlgn) time complexity and O(1) space complexity using comparisons.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 const heapSort = (array: number[]) => {

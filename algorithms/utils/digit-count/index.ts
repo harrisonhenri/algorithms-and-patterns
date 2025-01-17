@@ -1,6 +1,6 @@
 /**
  * Returns the number of the digits given a number.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 export const digitCount = (number: number) => {

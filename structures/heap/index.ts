@@ -1,107 +1,48 @@
 /**
- * Basic heap.
- * @date 21/06/2023 - 00:01:00
+ * Heaps are data structures where the parent is smaller than (min-heap) than its
+ * children or bigger than (max-heap) its children. Heaps usually can store any
+ * values of any types.
+ * @date 17/12/2025 - 00:00:00
  *
  */
-export class Heap {
-  #elements: number[];
+export class Heap<T> {
+  protected items: T[] = [];
 
-  constructor(array: number[]) {
-    this.#elements = [];
-    array.forEach((element) => {
-      this.insert(element);
-    });
+  swap(index1: number, index2: number) {
+    const temp = this.items[index1];
+    this.items[index1] = this.items[index2];
+    this.items[index2] = temp;
   }
 
-  #swap(a: number, b: number) {
-    const tmp = this.#elements[a];
-    this.#elements[a] = this.#elements[b];
-    this.#elements[b] = tmp;
+  parentIndex(index: number) {
+    return Math.floor((index - 1) / 2);
   }
 
-  #getLeftChildIndex(parentIndex: number) {
-    return 2 * parentIndex + 1;
+  leftChildIndex(index: number) {
+    return index * 2 + 1;
   }
 
-  #getRightChildIndex(parentIndex: number) {
-    return 2 * parentIndex + 2;
+  rightChildIndex(index: number) {
+    return index * 2 + 2;
   }
 
-  #getParentIndex(childIndex: number) {
-    return Math.floor((childIndex - 1) / 2);
+  parent(index: number) {
+    return this.items[this.parentIndex(index)];
   }
 
-  #hasLeftChild(index: number) {
-    return this.#getLeftChildIndex(index) < this.#elements.length;
+  leftChild(index: number) {
+    return this.items[this.leftChildIndex(index)];
   }
 
-  #hasRightChild(index: number) {
-    return this.#getRightChildIndex(index) < this.#elements.length;
+  rightChild(index: number) {
+    return this.items[this.rightChildIndex(index)];
   }
 
-  #hasParent(index: number) {
-    return this.#getParentIndex(index) >= 0;
+  peek() {
+    return this.items[0];
   }
 
-  #parent(index: number) {
-    return this.#elements[this.#getParentIndex(index)];
-  }
-
-  #leftChild(index: number) {
-    return this.#elements[this.#getLeftChildIndex(index)];
-  }
-
-  #rightChild(index: number) {
-    return this.#elements[this.#getRightChildIndex(index)];
-  }
-
-  isEmpty() {
-    return this.#elements.length === 0;
-  }
-
-  insert(e: number) {
-    this.#elements.push(e);
-    this.heapifyUp();
-  }
-
-  remove() {
-    if (this.#elements.length === 0) {
-      return null;
-    }
-    const item = this.#elements[0];
-    this.#elements[0] = this.#elements[this.#elements.length - 1];
-    this.#elements.pop();
-    this.heapifyDown();
-    return item;
-  }
-
-  heapifyUp() {
-    let index = this.#elements.length - 1;
-    while (
-      this.#hasParent(index) &&
-      this.#parent(index) > this.#elements[index]
-    ) {
-      this.#swap(this.#getParentIndex(index), index);
-      index = this.#getParentIndex(index);
-    }
-  }
-
-  heapifyDown() {
-    let index = 0;
-    while (this.#hasLeftChild(index)) {
-      let smallerChildIndex = this.#getLeftChildIndex(index);
-      if (
-        this.#hasRightChild(index) &&
-        this.#rightChild(index) < this.#leftChild(index)
-      ) {
-        smallerChildIndex = this.#getRightChildIndex(index);
-      }
-      if (this.#elements[index] < this.#elements[smallerChildIndex]) {
-        break;
-      } else {
-        this.#swap(index, smallerChildIndex);
-      }
-      index = smallerChildIndex;
-    }
+  size() {
+    return this.items.length;
   }
 }

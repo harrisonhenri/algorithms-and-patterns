@@ -1,36 +1,39 @@
+import { maxArrayIndex } from "../../utils/max-array-index";
 import { timer } from "../../utils/timer";
 
-const merge = (a: number[], b: number[]) => {
-  let i = 0;
-  let j = 0;
-  const result = [];
-
-  while (i < a.length && j < b.length) {
-    result.push(a[i] < b[j] ? a[i++] : b[j++]);
-  }
-
-  return result.concat(i < a.length ? a.slice(i) : b.slice(j));
-};
-
 /**
- * Sorts the array with a O(nlgn) time complexity and O(n) space complexity using comparisons and divide to conquer approach.
- * @date 21/06/2023 - 00:01:00
+ * Sorts the array with a O(n) time complexity and O(n) space complexity.
+ * The numbers must be integers distributed in a small range.
+ * @date 21/06/2023 - 00:00:00
  *
  */
-const mergeSort = (array: number[]) => {
-  if (array.length > 1) {
-    const middle = Math.floor(array.length / 2);
-    const left = mergeSort(array.slice(0, middle));
-    const right = mergeSort(array.slice(middle));
-    array = merge(left, right);
+export const countSort = (array: number[]) => {
+  const maxIndex = maxArrayIndex(array);
+  const maxValue = array[maxIndex];
+  let counter = new Array(maxValue + 1).fill(0);
+  let result = [];
+  let numItemsBefore = 0;
+
+  for (const element of array) {
+    counter[element]++;
   }
 
-  return array;
+  for (const [index, count] of counter.entries()) {
+    counter[index] = numItemsBefore;
+    numItemsBefore += count;
+  }
+
+  for (const element of array) {
+    result[counter[element]] = element;
+    counter[element]++;
+  }
+
+  return result;
 };
 
 console.log(
   timer(() =>
-    mergeSort([
+    countSort([
       499, 498, 497, 496, 495, 494, 493, 492, 491, 490, 489, 488, 487, 486, 485,
       484, 483, 482, 481, 480, 479, 478, 477, 476, 475, 474, 473, 472, 471, 470,
       469, 468, 467, 466, 465, 464, 463, 462, 461, 460, 459, 458, 457, 456, 455,

@@ -1,6 +1,6 @@
 /**
  * Prints the time execution of the function.
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 export const timer = (fn: Function) => {

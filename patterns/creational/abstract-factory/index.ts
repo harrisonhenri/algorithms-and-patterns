@@ -1,7 +1,7 @@
 /**
  * Customize an object construction of a determinated class hiding its type using an interface.
  *
- * @date 21/06/2023 - 00:01:00
+ * @date 21/06/2023 - 00:00:00
  *
  */
 
