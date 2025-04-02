@@ -3,8 +3,8 @@ import { timer } from "../../utils/timer";
 
 /**
  * Sorts the array with a O(nlgn) time complexity and O(nlgn) space complexity using comparisons and divide to conquer approach.
- * This algorithm generally outperforms heapsort in practice.  This algorithm is often favored for typical applications on average cases,
- * while mergesort is a better choice when stability, parallelism, or worst-case guarantees are essential
+ * This algorithm generally outperforms heapsort in practice. This algorithm is often favored for typical applications on average cases,
+ * while mergesort is a better choice when stability, parallelism, external sorting, or when worst-case guarantees are essential.
  * @date 21/06/2023 - 00:00:00
  *
  */
