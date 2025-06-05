@@ -38,9 +38,7 @@ class AcmeSalary extends BaseSalaryCalculator {
   }
 }
 
-(() => {
-  const acme = new AcmeSalary();
-  const salary = 5000.0;
+const acme = new AcmeSalary();
+const salary = 5000.0;
 
-  console.log(acme.calcSalary(salary));
-})();
+console.log(acme.calcSalary(salary));

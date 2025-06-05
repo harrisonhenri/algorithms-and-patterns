@@ -5,43 +5,56 @@
  *
  */
 
-interface Component {
-  operation(): string;
+interface Coffee {
+  cost(): number;
+  description(): string;
 }
 
-class ConcreteComponent implements Component {
-  public operation(): string {
-    return "ConcreteComponent";
+class SimpleCoffee implements Coffee {
+  cost() {
+    return 5;
+  }
+  description() {
+    return "Simple Coffee";
   }
 }
 
-class Decorator implements Component {
-  constructor(protected component: Component) {}
+class CoffeeDecorator implements Coffee {
+  constructor(protected coffee: Coffee) {}
 
-  public operation(): string {
-    return this.component.operation();
+  cost() {
+    return this.coffee.cost();
+  }
+
+  description() {
+    return this.coffee.description();
   }
 }
 
-class ConcreteDecoratorA extends Decorator {
-  public operation(): string {
-    return `ConcreteDecoratorA(${super.operation()})`;
+class MilkDecorator extends CoffeeDecorator {
+  cost() {
+    return super.cost() + 1.5;
+  }
+
+  description() {
+    return super.description() + ", Milk";
   }
 }
 
-class ConcreteDecoratorB extends Decorator {
-  public operation(): string {
-    return `ConcreteDecoratorB(${super.operation()})`;
+class SugarDecorator extends CoffeeDecorator {
+  cost() {
+    return super.cost() + 0.5;
+  }
+
+  description() {
+    return super.description() + ", Sugar";
   }
 }
 
-(() => {
-  const simple = new ConcreteComponent();
-  console.log("Client: I've got a simple component:");
-  console.log(simple.operation());
+let coffee: Coffee = new SimpleCoffee();
+console.log(coffee.description(), coffee.cost());
+coffee = new MilkDecorator(coffee);
+console.log(coffee.description(), coffee.cost());
 
-  const decorator1 = new ConcreteDecoratorA(simple);
-  const decorator2 = new ConcreteDecoratorB(decorator1);
-  console.log("Client: Now I've got a decorated component:");
-  console.log(decorator2.operation());
-})();
+coffee = new SugarDecorator(coffee);
+console.log(coffee.description(), coffee.cost());

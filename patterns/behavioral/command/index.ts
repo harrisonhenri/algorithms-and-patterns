@@ -43,7 +43,5 @@ class Invoker {
   }
 }
 
-(() => {
-  const invoker = new Invoker(new ConcreteCommand("Say Hi!"));
-  invoker.doSomethingImportant();
-})();
+const invoker = new Invoker(new ConcreteCommand("Say Hi!"));
+invoker.doSomethingImportant();

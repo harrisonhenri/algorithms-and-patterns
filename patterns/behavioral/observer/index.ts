@@ -49,8 +49,6 @@ class TermometroCelsius implements Observer {
   }
 }
 
-(() => {
-  const t = new Temperatura();
-  t.addObserver(new TermometroCelsius());
-  t.setTemp(100.0);
-})();
+const t = new Temperatura();
+t.addObserver(new TermometroCelsius());
+t.setTemp(100.0);

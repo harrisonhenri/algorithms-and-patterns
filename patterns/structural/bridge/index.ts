@@ -35,8 +35,6 @@ class ConcreteImplementationA implements Implementation {
   }
 }
 
-(() => {
-  let implementation = new ConcreteImplementationA();
-  let abstraction = new Abstraction(implementation);
-  console.log(abstraction.operation());
-})();
+let implementation = new ConcreteImplementationA();
+let abstraction = new Abstraction(implementation);
+console.log(abstraction.operation());

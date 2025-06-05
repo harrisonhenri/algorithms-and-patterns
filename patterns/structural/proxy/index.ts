@@ -41,10 +41,8 @@ class ProxySubject implements ISubject {
   }
 }
 
-(() => {
-  const realSubject = new RealSubject();
-  const proxy = new ProxySubject(realSubject);
+const realSubject = new RealSubject();
+const proxy = new ProxySubject(realSubject);
 
-  realSubject.request();
-  proxy.request();
-})();
+realSubject.request();
+proxy.request();

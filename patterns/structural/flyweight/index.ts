@@ -52,21 +52,19 @@ class FlyweightFactory {
   }
 }
 
-(() => {
-  const factory = new FlyweightFactory([
-    ["Chevrolet", "Camaro2018", "pink"],
-    ["Mercedes Benz", "C300", "black"],
-    ["Mercedes Benz", "C500", "red"],
-    ["BMW", "M5", "red"],
-    ["BMW", "X6", "white"],
-  ]);
+const factory = new FlyweightFactory([
+  ["Chevrolet", "Camaro2018", "pink"],
+  ["Mercedes Benz", "C300", "black"],
+  ["Mercedes Benz", "C500", "red"],
+  ["BMW", "M5", "red"],
+  ["BMW", "X6", "white"],
+]);
 
-  factory.listFlyweights();
+factory.listFlyweights();
 
-  let flyweight = factory.getFlyweight(["BMW", "M5", "red"]);
-  flyweight.operation(["CL234IR", "James Doe"]);
-  flyweight = factory.getFlyweight(["BMW", "X1", "red"]);
-  flyweight.operation(["CL234IR", "James Doe"]);
+let flyweight = factory.getFlyweight(["BMW", "M5", "red"]);
+flyweight.operation(["CL234IR", "James Doe"]);
+flyweight = factory.getFlyweight(["BMW", "X1", "red"]);
+flyweight.operation(["CL234IR", "James Doe"]);
 
-  factory.listFlyweights();
-})();
+factory.listFlyweights();

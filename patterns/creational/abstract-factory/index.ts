@@ -75,10 +75,8 @@ class ConcreteFactory2 implements AbstractFactory {
   }
 }
 
-(() => {
-  const factory1 = new ConcreteFactory1();
-  const productA1 = factory1.createProductA();
-  const productB1 = factory1.createProductB();
-  console.log(productB1.usefulFunctionB());
-  console.log(productB1.anotherUsefulFunctionB(productA1));
-})();
+const factory1 = new ConcreteFactory1();
+const productA1 = factory1.createProductA();
+const productB1 = factory1.createProductB();
+console.log(productB1.usefulFunctionB());
+console.log(productB1.anotherUsefulFunctionB(productA1));

@@ -65,14 +65,12 @@ class ReceivedState implements PackageState {
   }
 }
 
-(() => {
-  const pack = new Package();
-  const packageState = new DeliveredState();
-  pack.setState(packageState);
-  pack.getState()?.printStatus();
-  pack.getState()?.next(pack);
-  pack.getState()?.printStatus();
-  pack.getState()?.next(pack);
-  pack.getState()?.printStatus();
-  pack.getState()?.next(pack);
-})();
+const pack = new Package();
+const packageState = new DeliveredState();
+pack.setState(packageState);
+pack.getState()?.printStatus();
+pack.getState()?.next(pack);
+pack.getState()?.printStatus();
+pack.getState()?.next(pack);
+pack.getState()?.printStatus();
+pack.getState()?.next(pack);

@@ -11,6 +11,4 @@ const toUpperCase = (x: string) => x.toUpperCase();
 const addy = (x: string) => `${x}y`;
 const shout = compose(addy, toUpperCase);
 
-(() => {
-  console.log(shout("send in the clowns"));
-})();
+console.log(shout("send in the clowns"));

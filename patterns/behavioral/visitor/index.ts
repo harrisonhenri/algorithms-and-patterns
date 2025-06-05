@@ -49,11 +49,9 @@ class PrintVisitor implements Visitor {
   }
 }
 
-(() => {
-  const list = [new Car("C1"), new Bus("B1")];
-  const visitor = new PrintVisitor();
+const list = [new Car("C1"), new Bus("B1")];
+const visitor = new PrintVisitor();
 
-  for (const vehicle of list) {
-    vehicle.accept(visitor);
-  }
-})();
+for (const vehicle of list) {
+  vehicle.accept(visitor);
+}

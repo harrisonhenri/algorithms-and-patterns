@@ -49,6 +49,4 @@ class InterpreterX {
   }
 }
 
-(() => {
-  new InterpreterX("prog1.x").eval();
-})();
+new InterpreterX("prog1.x").eval();

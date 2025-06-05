@@ -34,12 +34,10 @@ class Livro {
   }
 }
 
-(() => {
-  const livro = new Livro()
-    .setNome("Engenharia Soft Moderna")
-    .setEditora("UFMG")
-    .setAno("2020")
-    .build();
+const livro = new Livro()
+  .setNome("Engenharia Soft Moderna")
+  .setEditora("UFMG")
+  .setAno("2020")
+  .build();
 
-  console.log(livro.showDetails());
-})();
+console.log(livro.showDetails());

@@ -53,9 +53,7 @@ class SquirrelHandler extends AbstractHandler {
   }
 }
 
-(() => {
-  const monkey = new MonkeyHandler();
-  const squirrel = new SquirrelHandler(monkey);
+const monkey = new MonkeyHandler();
+const squirrel = new SquirrelHandler(monkey);
 
-  console.log(squirrel.handle("Banana"));
-})();
+console.log(squirrel.handle("Banana"));

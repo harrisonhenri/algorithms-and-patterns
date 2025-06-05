@@ -11,7 +11,5 @@ const addCurried = (x: number) => (y: number) => x + y;
 const addTen = addCurried(10);
 const addFive = curry((x: number, y: number) => x + y)(5);
 
-(() => {
-  console.log(addTen(2));
-  console.log(addFive(2));
-})();
+console.log(addTen(2));
+console.log(addFive(2));
