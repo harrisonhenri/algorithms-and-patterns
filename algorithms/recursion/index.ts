@@ -99,6 +99,501 @@
  */
 
 /**
+ * # Greedy Algorithms: Making Locally Optimal Choices
+ *
+ * **Definition:**
+ * A Greedy Algorithm is an optimization approach that makes the **locally optimal choice**
+ * at each step, hoping to find a **global optimum**. Unlike DP which considers all
+ * possibilities, greedy commits to each choice immediately without reconsideration.
+ *
+ * **Core Principle:**
+ * At each step, make the choice that **looks best in the current moment**, then
+ * never look back (no backtracking).
+ *
+ * ## How Greedy Works vs Other Approaches
+ *
+ * **Dynamic Programming (Both Top-Down & Bottom-Up):**
+ * - Explores multiple choices and picks the best overall solution
+ * - Considers future consequences of current choice
+ * - Can backtrack or change decisions based on subproblem results
+ * - Time: O(n²) or O(n³) but guaranteed optimal solution
+ *
+ * **Greedy Algorithm:**
+ * - Makes one choice at each step (locally optimal)
+ * - Never reconsiders previous choices
+ * - Fast: typically O(n log n) or O(n)
+ * - May NOT find global optimum (but sometimes does!)
+ *
+ * **Brute Force:**
+ * - Tries all possible combinations
+ * - Time: O(2^n) or O(n!)
+ * - Guaranteed optimal but impractical for large inputs
+ *
+ * **Comparison Table:**
+ *
+ * | Approach | Optimal? | Time | Reconsiders Choices? | Use Case |
+ * |----------|----------|------|----------------------|----------|
+ * | Greedy | Maybe | Fast O(n) | No | Simple, when greedy property holds |
+ * | DP Top-Down | Yes | Poly O(n²) | Yes (memoization) | Overlapping subproblems |
+ * | DP Bottom-Up | Yes | Poly O(n²) | Yes (tabulation) | Overlapping subproblems |
+ * | Brute Force | Yes | Exponential | Yes (all paths) | Small inputs only |
+ * | Approximate | Approximate | Fast | No | When optimal is too slow |
+ *
+ * ## DP Implementation Strategies (Both Bottom-Up and Top-Down)
+ *
+ * **Top-Down Approach (Memoization):**
+ * - Start with problem of size n
+ * - Recursively break into smaller subproblems
+ * - Store results in hash map (memoization table)
+ * - Return cached result if subproblem already solved
+ * - More intuitive: matches problem decomposition naturally
+ * - Easier to add memoization to existing recursive code
+ *
+ * ```typescript
+ * // Top-Down with Memoization
+ * function fib(n, memo = {}) {
+ *   if (n in memo) return memo[n];        // Check cache
+ *   if (n <= 1) return n;                  // Base case
+ *   memo[n] = fib(n-1, memo) + fib(n-2, memo);  // Solve & cache
+ *   return memo[n];
+ * }
+ * // Time: O(n), Space: O(n) recursion stack + hash map
+ * ```
+ *
+ * **Bottom-Up Approach (Tabulation):**
+ * - Start with smallest subproblems (base cases)
+ * - Iteratively build up to problem of size n
+ * - Store results in array (DP table)
+ * - No recursion: uses iteration instead
+ * - More efficient: avoids function call overhead
+ * - Better for interviews: clearer iteration pattern
+ *
+ * ```typescript
+ * // Bottom-Up with Tabulation
+ * function fib(n) {
+ *   if (n <= 1) return n;
+ *   const dp = [0, 1];
+ *   for (let i = 2; i <= n; i++) {
+ *     dp[i] = dp[i-1] + dp[i-2];  // Build from smaller subproblems
+ *   }
+ *   return dp[n];
+ * }
+ * // Time: O(n), Space: O(n) for DP array
+ * ```
+ *
+ * **Space-Optimized Bottom-Up:**
+ * - Only keep variables needed for current computation
+ * - If i-th value depends only on (i-1), use rolling array
+ * - Space: O(1) instead of O(n)
+ *
+ * ```typescript
+ * // Bottom-Up Space-Optimized (Rolling Variables)
+ * function fib(n) {
+ *   let [prev2, prev1] = [0, 1];
+ *   for (let i = 2; i <= n; i++) {
+ *     let current = prev1 + prev2;
+ *     [prev2, prev1] = [prev1, current];  // Roll forward
+ *   }
+ *   return prev1;
+ * }
+ * // Time: O(n), Space: O(1)
+ * ```
+ *
+ * ## When Greedy Works: The Greedy Choice Property
+ *
+ * A greedy algorithm finds the **global optimum** only when the problem has two properties:
+ *
+ * ### 1. Greedy Choice Property
+ * - A globally optimal solution can be arrived at by making locally optimal choices
+ * - The choice made at one step doesn't affect the validity of previous choices
+ * - Example: Making small steps toward a mountain top (local direction = global direction)
+ * - **NOT always true**: shortest path in weighted graphs (need DP/Dijkstra)
+ *
+ * ### 2. Optimal Substructure
+ * - Optimal solution contains optimal solutions to subproblems
+ * - This property is shared with DP!
+ * - Difference: DP proves it by exploring all options, greedy just assumes it
+ *
+ * **When Greedy Succeeds:**
+ * - ✅ Coin Change (Largest coins first) - works for real currency systems
+ * - ✅ Activity Selection (Earliest end time) - greedy maximizes room for future activities
+ * - ✅ Huffman Coding (Merge rarest trees) - greedy minimizes total encoding length
+ * - ✅ Minimum Spanning Tree (Kruskal's) - add smallest edges without cycles
+ *
+ * **When Greedy Fails:**
+ * - ❌ Coin Change with arbitrary denominations (e.g., 1,3,4 with amount 6)
+ *   - Greedy: 4+1+1 = 3 coins
+ *   - Optimal: 3+3 = 2 coins
+ * - ❌ 0/1 Knapsack (most valuable first may not fit well)
+ * - ❌ Shortest Path in weighted graphs (Dijkstra's uses greedy with priority queue)
+ * - ❌ Longest Increasing Subsequence (needs DP, not greedy)
+ *
+ * ## Greedy Algorithms and Approximate Solutions
+ *
+ * **When Optimal is Too Slow:**
+ * Some problems are NP-Hard (no polynomial-time optimal solution known):
+ * - Traveling Salesman Problem (TSP): O(n!) optimal, too slow for large n
+ * - Knapsack Problem: O(n·W) DP for 0/1 variant
+ * - Set Cover: O(n²) greedy approximation vs exponential optimal
+ * - Graph Coloring: NP-Hard to find minimum colors
+ *
+ * **Approximate Algorithms:**
+ * Use greedy or heuristic methods to find **reasonably good** solutions quickly:
+ *
+ * ```
+ * NP-Hard Problem (TSP)
+ * ├─ Optimal Solution: O(n!) - Impractical for n > 15
+ * ├─ DP Solution: O(n² · 2^n) - Better but still exponential
+ * └─ Greedy Approximate: O(n²) - Fast, "good enough" solution (not optimal)
+ * ```
+ *
+ * **Approximation Ratio:**
+ * How close is the greedy solution to optimal?
+ * - Example: Greedy TSP gives solution ≤ 2x optimal (for metric TSP)
+ * - Set Cover: Greedy gives solution ≤ (ln n) × optimal
+ * - Means: "Greedy is at most 2 times worse than optimal"
+ *
+ * **When to Use Approximate Algorithms:**
+ * - ✅ Optimal solution takes too long (exponential time)
+ * - ✅ Problem is NP-Hard (no known polynomial algorithm)
+ * - ✅ Good solution is "good enough" for business needs
+ * - ✅ Real-time systems (must respond quickly)
+ * - ❌ Correctness is critical (medical, safety systems)
+ * - ❌ Small inputs where optimal is feasible
+ *
+ * ## Choosing Between Greedy, DP, and Approximation
+ *
+ * **Decision Flow:**
+ *
+ * ```
+ * Is optimal solution required?
+ * ├─ YES
+ * │  ├─ Does greedy choice property hold?
+ * │  │  ├─ YES: Use Greedy (O(n log n) typical)
+ * │  │  └─ NO: Are there overlapping subproblems?
+ * │  │     ├─ YES: Use DP (top-down or bottom-up)
+ * │  │     └─ NO: Use Divide & Conquer or other approach
+ * └─ NO (Approximate solution acceptable)
+ *    └─ Use Greedy Approximation (fast + good enough)
+ * ```
+ *
+ * **Complexity Comparison:**
+ *
+ * | Problem | Greedy Optimal | DP Optimal | Greedy Approx | Choice |
+ * |---------|---|---|---|---|
+ * | Activity Selection | O(n log n) ✅ | O(n²) | - | Greedy (optimal + fast) |
+ * | Coin Change (std) | O(n log n) ✅ | O(n·W) | - | Greedy (optimal + fast) |
+ * | Coin Change (arbitrary) | ❌ fails | O(n·W) ✅ | O(n²) | DP if optimal needed |
+ * | 0/1 Knapsack | ❌ fails | O(n·W) ✅ | O(n) | DP for optimal |
+ * | TSP | ❌ fails | O(n²·2^n) | O(n²) ✅ | Greedy approximation for large n |
+ * | Set Cover | ❌ fails | O(2^n) | O(n² ln n) ✅ | Greedy approximation |
+ *
+ * ## Key Insight: Greedy ⊂ Approximate Algorithms
+ *
+ * **All greedy algorithms used for hard problems are approximate:**
+ * - They run fast but don't guarantee optimality
+ * - Approximation ratio tells us "how close to optimal"
+ * - Different from greedy that finds optimal (like coin change)
+ *
+ * **Two Types of Greedy:**
+ * 1. **Greedy that Finds Optimal** (Activity Selection, Huffman)
+ *    - Problem has greedy choice property
+ *    - Provably optimal solution
+ *    - Fast: O(n log n) typical
+ *
+ * 2. **Greedy as Approximation** (TSP, Set Cover)
+ *    - Problem doesn't have greedy choice property
+ *    - Finds "good" solution, not always optimal
+ *    - Approximation ratio ≤ c (e.g., ≤ 2x optimal for metric TSP)
+ *
+ * ## Summary Table
+ *
+ * | Algorithm Type | Guarantee | Time | Space | When to Use |
+ * |---|---|---|---|---|
+ * | Greedy (Optimal) | Finds optimal | O(n log n) | O(1) | When greedy property provable |
+ * | Top-Down DP | Finds optimal | O(n²) | O(n²) memo | Overlapping subproblems, intuitive |
+ * | Bottom-Up DP | Finds optimal | O(n²) | O(n²) array | Overlapping subproblems, efficient |
+ * | Space-Opt DP | Finds optimal | O(n²) | O(1) | Large inputs, limited dependencies |
+ * | Greedy Approx | Approx ratio | O(n log n) | O(1) | NP-Hard, optimal too slow |
+ * | Brute Force | Finds optimal | O(n!) | O(n) | Small inputs only (n < 15) |
+ */
+
+/**
+ * # P, NP, NP-Complete, and NP-Hard: Understanding Problem Complexity
+ *
+ * These classes categorize decision problems (yes/no answers) by computational difficulty.
+ * Understanding them helps you recognize when a problem is inherently hard.
+ *
+ * ## P (Polynomial Time)
+ *
+ * **Definition:**
+ * Problems that can be **solved** in polynomial time on a deterministic computer.
+ *
+ * **Meaning:**
+ * - We have an efficient algorithm (O(n²), O(n³), O(n log n), etc.)
+ * - Algorithm runs fast: answer guaranteed in reasonable time
+ * - "Easy" problems from computational perspective
+ *
+ * **Examples:**
+ * - ✅ Sorting: O(n log n) with merge sort or quicksort
+ * - ✅ Shortest path: O(n²) with Dijkstra's algorithm
+ * - ✅ Check if number is prime: O(√n) trial division or O(log³ n) AKS primality
+ * - ✅ Searching: O(log n) binary search
+ * - ✅ Tree traversal: O(n) DFS/BFS
+ *
+ * **Real-World Impact:**
+ * If your problem is in P, you can solve it on modern computers efficiently.
+ *
+ * ## NP (Nondeterministic Polynomial Time)
+ *
+ * **Definition:**
+ * Problems whose **solutions can be verified** in polynomial time.
+ *
+ * **Key Insight (The Game Changer):**
+ * - Finding solution might be hard (exponential)
+ * - But **checking** if a proposed solution is correct is easy (polynomial)
+ * - Example: Sudoku puzzle vs verifying completed sudoku
+ *
+ * **How NP Works:**
+ * 1. Someone gives you a **certificate** (proposed solution)
+ * 2. You can **verify** it's correct in polynomial time
+ * 3. If verification succeeds → answer is "YES"
+ *
+ * **Important:** P ⊆ NP
+ * - All P problems are in NP (if you can solve it, you can verify it)
+ * - Question: Are there NP problems NOT in P? (The famous P vs NP problem!)
+ *
+ * **Examples:**
+ * - ✅ Graph Coloring: Given k colors, can you color this graph?
+ *   - Finding coloring: Hard (exponential)
+ *   - Verifying coloring: Easy (check each edge has different colors)
+ *
+ * - ✅ Subset Sum: Does subset exist that sums to target?
+ *   - Finding subset: Hard (check all 2^n subsets)
+ *   - Verifying subset: Easy (add numbers, check sum)
+ *
+ * - ✅ Hamiltonian Cycle: Does path visit each node exactly once?
+ *   - Finding cycle: Hard (check all n! permutations)
+ *   - Verifying cycle: Easy (check path exists and visits each node once)
+ *
+ * - ✅ Boolean Satisfiability (SAT): Can boolean formula be satisfied?
+ *   - Finding assignment: Hard (try all 2^n assignments)
+ *   - Verifying assignment: Easy (evaluate formula with given values)
+ *
+ * ## NP-Complete
+ *
+ * **Definition:**
+ * NP problems that are **as hard as any other NP problem**.
+ * - Every NP problem can be reduced to this problem in polynomial time
+ * - If you solve NP-Complete in polynomial time, you solve ALL NP problems!
+ *
+ * **Why It Matters:**
+ * - NP-Complete problems form the "hardest" tier in NP
+ * - If P = NP (unlikely but unproven), NP-Complete has polynomial solution
+ * - If P ≠ NP (likely), NP-Complete has NO polynomial solution
+ *
+ * **The Reduction Concept:**
+ * Problem A **reduces to** Problem B if:
+ * - Any instance of A can be solved using a solver for B
+ * - The conversion from A to B is polynomial time
+ * - Solution to B gives solution to A
+ *
+ * Example: Converting graph coloring to SAT (polynomial time reduction)
+ *
+ * **Famous NP-Complete Problems:**
+ * - ✅ Boolean Satisfiability (SAT): First proven NP-Complete
+ * - ✅ Hamiltonian Cycle: Visit each node exactly once
+ * - ✅ Traveling Salesman Problem (TSP): Shortest path visiting all cities
+ * - ✅ Subset Sum: Find subset summing to target
+ * - ✅ Graph Coloring: Color graph with k colors (adjacent ≠ same color)
+ * - ✅ Knapsack Problem (0/1): Maximize value with weight constraint
+ * - ✅ Vertex Cover: Find minimum set of vertices covering all edges
+ *
+ * **Practical Consequence:**
+ * No known polynomial-time algorithm for any NP-Complete problem.
+ * Best known algorithms are exponential: O(2^n) or O(n!)
+ *
+ * ## NP-Hard
+ *
+ * **Definition:**
+ * Problems **at least as hard as NP-Complete problems**.
+ * - Not necessarily in NP (might not even be decision problems)
+ * - Every NP problem reduces to it in polynomial time
+ * - Harder than NP-Complete!
+ *
+ * **Key Difference from NP-Complete:**
+ * - NP-Complete: Must be in NP AND as hard as any NP problem
+ * - NP-Hard: Just needs to be "at least as hard" (doesn't need to be in NP)
+ * - NP-Hard ⊇ NP-Complete
+ *
+ * **Examples:**
+ * - ✅ TSP Optimization: Find shortest path (not just "does one exist?")
+ *   - NP-Hard but not NP-Complete (it's optimization, not decision)
+ *
+ * - ✅ Knapsack Optimization: Maximize value with constraint (not just "can we reach value X?")
+ *   - NP-Hard but not NP-Complete (optimization, not decision)
+ *
+ * - ✅ Chess: Determine if position is winning
+ *   - NP-Hard (harder than NP-Complete)
+ *   - Can't even verify solution quickly
+ *
+ * - ✅ Halting Problem: Will program halt?
+ *   - NP-Hard but UNDECIDABLE (no algorithm exists, even exponential)
+ *   - Beyond NP in the hierarchy
+ *
+ * ## Problem Classification Hierarchy
+ *
+ * ```
+ * All Problems
+ * ├─ Decidable Problems (have algorithms)
+ * │  ├─ P (fast: polynomial time)
+ * │  │  ├─ Sorting, searching, shortest path
+ * │  │  └─ (These are also NP)
+ * │  │
+ * │  └─ Non-P Decidable (slow: exponential or worse)
+ * │     ├─ NP (verifiable in polynomial time)
+ * │     │  ├─ NP-Complete (hardest in NP)
+ * │     │  │  ├─ SAT, TSP (decision), Graph Coloring
+ * │     │  │  └─ If any NP-Complete is in P, then P=NP
+ * │     │  │
+ * │     │  └─ NP-Intermediate? (if P ≠ NP)
+ * │     │     └─ NP but not NP-Complete (believed to exist)
+ * │     │
+ * │     └─ Harder than NP
+ * │        └─ NP-Hard (at least as hard as NP-Complete)
+ * │           ├─ TSP Optimization (NP-Hard but not decision)
+ * │           ├─ Knapsack Optimization
+ * │           └─ Chess analysis
+ * │
+ * └─ Undecidable Problems (no algorithm exists)
+ *    ├─ Halting Problem
+ *    ├─ Rice's Theorem consequences
+ *    └─ (Even more intractable than NP-Hard)
+ * ```
+ *
+ * ## Venn Diagram Relationship
+ *
+ * ```
+ * ┌─────────────────────────────────┐
+ * │     ALL PROBLEMS               │
+ * │                                 │
+ * │  ┌──────────────────────────┐  │
+ * │  │    NP-Hard              │  │
+ * │  │                          │  │
+ * │  │  ┌────────────────────┐ │  │
+ * │  │  │   NP-Complete     │ │  │
+ * │  │  │                  │ │  │
+ * │  │  │  ┌──────────────┐│ │  │
+ * │  │  │  │      P       ││ │  │
+ * │  │  │  └──────────────┘│ │  │
+ * │  │  └────────────────────┘ │  │
+ * │  └──────────────────────────┘  │
+ * └─────────────────────────────────┘
+ *
+ * P ⊂ NP ⊂ NP-Complete ⊂ NP-Hard
+ * (NP-Complete = hardest in NP)
+ * ```
+ *
+ * ## How to Recognize NP-Complete Problems
+ *
+ * There's no foolproof way, but these are **strong indicators**:
+ *
+ * **Indicator 1: Exponential Growth**
+ * - Algorithm runs fast for small inputs (n ≤ 10)
+ * - Performance drops off a cliff with size increase (n > 15)
+ * - Time roughly doubles for each +1 to input size
+ * - ⚠️ Classic signature of NP-Complete
+ *
+ * **Indicator 2: "All Combinations"**
+ * - Problem involves finding "all combinations of X"
+ * - Or selecting subset with certain properties
+ * - Examples: "find best selection", "all permutations"
+ * - ⚠️ Usually means checking all 2^n or n! possibilities
+ *
+ * **Indicator 3: Can't Decompose into Subproblems**
+ * - Problem requires checking **every possible version** of X
+ * - Can't break into independent smaller subproblems
+ * - Dynamic programming doesn't work
+ * - ⚠️ Often indicates NP-Complete
+ *
+ * **Indicator 4: Involves Sequences (Permutations)**
+ * - Find optimal "sequence of X" (like cities in TSP)
+ * - Finding shortest/longest sequence with properties
+ * - If hard to solve → likely NP-Complete
+ * - ⚠️ TSP, Hamiltonian path, scheduling problems
+ *
+ * **Indicator 5: Involves Sets**
+ * - Find optimal "set of X" (like minimum radio stations)
+ * - Selecting subset with best properties
+ * - If hard to solve → likely NP-Complete
+ * - ⚠️ Set cover, subset sum, vertex cover
+ *
+ * **Indicator 6: Reduces to Known NP-Complete**
+ * - Problem can be reformulated as SAT, TSP, or subset sum?
+ * - If yes: **DEFINITELY NP-Complete**
+ * - This is the rigorous way to prove NP-Completeness
+ *
+ * ## Practical Handling of NP-Complete Problems
+ *
+ * **For Small Inputs (n ≤ 20):**
+ * - ✅ Brute force: O(2^n) exponential is acceptable
+ * - ✅ Dynamic programming with bitmasks: O(n² · 2^n)
+ * - ✅ Branch and bound with pruning
+ *
+ * **For Medium Inputs (n ≤ 100):**
+ * - ✅ Greedy approximation: Fast, "good enough"
+ * - ✅ Local search heuristics (2-opt, 3-opt)
+ * - ✅ Simulated annealing or genetic algorithms
+ * - ✅ Integer linear programming solvers
+ *
+ * **For Large Inputs (n > 1000):**
+ * - ✅ Greedy heuristic: O(n log n) approximation
+ * - ✅ Accept suboptimal solution as business requirement
+ * - ✅ Approximation algorithms with proven bounds
+ * - ✅ Problem-specific insights to reduce search space
+ *
+ * **Quick Decision Table:**
+ *
+ * | Input Size | Best Approach | Expected Quality |
+ * |---|---|---|
+ * | n ≤ 20 | Exact (brute force, DP) | Optimal solution |
+ * | 20 < n ≤ 100 | Approximation + local search | Good solution (~95% optimal) |
+ * | n > 100 | Greedy heuristic | Fast approximation (50-80% optimal) |
+ *
+ * ## Summary: The Complexity Landscape
+ *
+ * | Category | Time | Verification | Examples | Approach |
+ * |---|---|---|---|---|
+ * | **P** | Polynomial O(n²) | N/A (solve it) | Sorting, shortest path | Use exact algorithm |
+ * | **NP** | Unknown | Polynomial | Coloring, SAT | Greedy or DP for small n |
+ * | **NP-Complete** | Likely exponential | Polynomial | TSP, Hamiltonian | Approximation + heuristics |
+ * | **NP-Hard** | Likely exponential+ | Often difficult | TSP optimization, Chess | Approximation or heuristics |
+ * | **Undecidable** | Impossible | Impossible | Halting problem | No algorithm exists |
+ *
+ * ## P vs NP: The Million Dollar Question
+ *
+ * **The Problem:**
+ * Is P = NP?
+ * - P = NP means: solving = verifying (for decision problems)
+ * - P ≠ NP means: some problems are inherently harder to solve than verify
+ *
+ * **Current Consensus:**
+ * - Widely believed: P ≠ NP (solving harder than verifying)
+ * - No proof either way (one of 7 Millennium Prize Problems, $1M reward)
+ * - All practical cryptography depends on P ≠ NP being true
+ *
+ * **If P = NP (unlikely):**
+ * - NP-Complete problems would have polynomial solutions
+ * - All modern encryption would be broken
+ * - Many optimization problems become "easy"
+ *
+ * **If P ≠ NP (likely):**
+ * - NP-Complete problems are fundamentally hard
+ * - No polynomial algorithm exists for them
+ * - Approximation and heuristics are the only approach
+ */
+
+/**
  * # Execution Tree Analysis
  *
  * **Purpose:**
