@@ -8,7 +8,7 @@
 
 import { BinaryTree, TreeNode } from "..";
 
-class BinarSearchTree<T> extends BinaryTree<T> {
+class BinarySearchTree<T> extends BinaryTree<T> {
   insert(value: T) {
     const newNode = new TreeNode(value);
 
@@ -107,7 +107,7 @@ class BinarSearchTree<T> extends BinaryTree<T> {
   }
 }
 
-const tree = new BinarSearchTree<number>();
+const tree = new BinarySearchTree<number>();
 tree.insert(42);
 tree.insert(41);
 tree.insert(50);

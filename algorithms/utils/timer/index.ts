@@ -3,16 +3,15 @@
  * @date 21/06/2023 - 00:00:00
  *
  */
-export const timer = (fn: Function) => {
+
+export const timer = (fn: Function): { result: any; time: number } => {
   const startAt = new Date();
 
   const result = fn();
 
   const endAt = new Date();
 
-  const executionTimeInSeconds = endAt.getTime() - startAt.getTime();
+  const time = endAt.getTime() - startAt.getTime();
 
-  console.log(`Executed in ${executionTimeInSeconds} milliseconds.`);
-
-  return result;
+  return { result, time };
 };

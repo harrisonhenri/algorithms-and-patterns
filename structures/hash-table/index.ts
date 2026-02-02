@@ -1,6 +1,23 @@
 /**
- * Basic hash table.
- * @date 14/12/2025 - 00:00:00
+ * Hash Table implementation with linear probing for collision resolution.
+ *
+ * **Typical use cases / strengths:**
+ * - Fast key-value lookups and insertions
+ * - Caching and memoization
+ * - Counting frequencies and deduplication
+ * - Implementing sets and dictionaries
+ *
+ * **Time Complexity (Average):**
+ * - `get()` → **O(1)** average
+ * - `put()` → **O(1)** average
+ * - `delete()` → **O(1)** average
+ *
+ * **Note:** Worst-case is O(n) if there are many collisions.
+ * This implementation uses linear probing. Other collision resolution strategies
+ * include chaining, quadratic probing, and double hashing.
+ *
+ * **Interview intuition:** "Fast lookups, key-value storage"
+ * @date 13/01/2026 - 00:00:00
  *
  */
 class HashTable {
