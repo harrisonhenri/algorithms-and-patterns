@@ -162,23 +162,31 @@
  *
  * **Bottom-Up Approach (Tabulation):**
  * - Start with smallest subproblems (base cases)
- * - Iteratively build up to problem of size n
+ * - **TYPICALLY ITERATIVE** - uses loops (for/while) instead of recursion
+ * - Build up to problem of size n by repeating steps in loops
  * - Store results in array (DP table)
  * - No recursion: uses iteration instead
- * - More efficient: avoids function call overhead
+ * - More efficient: avoids function call overhead and stack growth
  * - Better for interviews: clearer iteration pattern
  *
+ * **What is "Iterative"?**
+ * - Opposite of recursion: solves problem by repeating steps in loops
+ * - vs Recursive: solves by function calling itself
+ * - Bottom-up naturally fits iterative because we build from small→large using `for`/`while`
+ * - This is why: "bottom-up approaches are typically iterative"
+ *
  * ```typescript
- * // Bottom-Up with Tabulation
+ * // Bottom-Up with Tabulation (ITERATIVE - uses loop)
  * function fib(n) {
  *   if (n <= 1) return n;
  *   const dp = [0, 1];
- *   for (let i = 2; i <= n; i++) {
- *     dp[i] = dp[i-1] + dp[i-2];  // Build from smaller subproblems
+ *   for (let i = 2; i <= n; i++) {  // Loop repeats steps
+ *     dp[i] = dp[i-1] + dp[i-2];    // Build from smaller subproblems
  *   }
  *   return dp[n];
  * }
  * // Time: O(n), Space: O(n) for DP array
+ * // vs Recursive: would use function calls, not loops
  * ```
  *
  * **Space-Optimized Bottom-Up:**
