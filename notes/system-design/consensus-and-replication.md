@@ -1,0 +1,314 @@
+---
+tags: [system-design, distributed-systems, consensus, theory]
+title: "Consensus and replication"
+---
+# Linearizability in Different Replication Models
+
+## Single-leader replication (potentially linearizable)
+
+- Writes always go to the leader; followers replicate.
+- **Reads from the leader** (or followers with synchronous replication) **can be linearizable**.
+- Not every single-leader system is linearizable:
+    - Some use *snapshot isolation* (break recency since SI gives you a consistent snapshot **from the past, not a guarantee that reads reflect the most recent committed write).
+    - Concurrency bugs can cause inconsistency.
+- Risk: a node may believe it is the leader when it isn’t → **split-brain** → violates linearizability.
+- In asynchronous replication, **failover can lose commits**, breaking durability and linearizability.
+- **Examples:** PostgreSQL (read from primary), MySQL/MariaDB Primary–Replica, MongoDB (readPreference: primary).
+
+## Consensus algorithms (linearizable)
+
+- They resemble single-leader systems, but include mechanisms against split-brain and stale replicas.
+- They safely implement linearizable storage.
+- **Examples:** ZooKeeper (ZAB), etcd (Raft), Consul (Raft).
+
+## Multi-leader replication (not linearizable)
+
+- Multiple leaders accepting writes simultaneously.
+- Writes reach each node in different orders → conflicts are inevitable.
+- Conflicts exist because **there is no single “true” copy** of the state.
+- **Examples:** CouchDB (multi-master), older MySQL active–active setups, Active–Active NoSQL topologies.
+
+## Leaderless replication (likely not linearizable)
+
+- Dynamo-like model.
+- Quorums (w + r > n) do not guarantee linearizability depending on configuration.
+- **Last-write-wins** based on timestamps → almost certainly nonlinearizable (clock skew).
+- **Sloppy quorums** and hinted handoff → eliminate any chance.
+- Even with “strict” quorums, nonlinearizable behavior still occurs.
+- **Examples:** Amazon Dynamo (original), Apache Cassandra, Riak.
+
+
+
+---
+
+# Distributed Coordination and Consensus Models
+
+## Two-Phase Commit (2PC) (not fault-tolerant consensus)
+
+- Designed for **atomic commit** across multiple participants (all-or-nothing).
+- Uses a **fixed coordinator** (no leader election).
+- Requires **unanimous agreement**:
+    - Every participant must vote *YES*.
+- If the coordinator fails after participants vote *YES*:
+    - Participants are **blocked indefinitely** (in-doubt state).
+- **No progress guarantee** under failures → violates termination.
+- Safety is preserved (no inconsistent commit), but **availability is lost**.
+- Assumes failures are rare and short-lived.
+
+### How 2PC works (step-by-step example)
+
+**Scenario:** Transaction updating balances in DB_A and DB_B.
+
+1. **Prepare phase**
+    - Coordinator sends `PREPARE` to DB_A and DB_B.
+    - DB_A checks constraints, writes intent to disk, replies `YES`.
+    - DB_B does the same, replies `YES`.
+2. **Commit phase**
+    - Coordinator receives all `YES` votes.
+    - Coordinator sends `COMMIT` to DB_A and DB_B.
+3. **Failure case**
+    - Coordinator crashes **after** DB_A and DB_B voted `YES`, **before** sending `COMMIT`.
+    - DB_A and DB_B:
+        - Cannot commit (no COMMIT received).
+        - Cannot abort (they already voted YES).
+        - Stay blocked waiting for coordinator recovery.
+
+**Result**
+
+- Atomicity preserved.
+- System progress halted indefinitely.
+
+### Key risks
+
+- Coordinator failure → system-wide blocking.
+- Not resilient to permanent node crashes.
+- Requires stable storage and careful recovery logic per participant.
+
+### Typical use cases
+
+- Distributed databases within a single datacenter.
+- Systems where blocking is acceptable.
+
+### Examples
+
+- XA transactions
+- Traditional distributed RDBMS transactions
+- Some message broker transaction models
+
+---
+
+## Consensus Algorithms (fault-tolerant, progress-guaranteed)
+
+- Designed to **continuously make decisions** despite failures.
+- Nodes **elect a leader dynamically**.
+- Decisions require approval from a **quorum (usually a majority)**.
+- Leader failures are handled automatically via **new elections**.
+- Safety properties are preserved **even during network partitions**.
+- Guarantees **termination** as long as a majority is alive.
+
+### How consensus works (generic example)
+
+**Scenario:** 5-node cluster deciding the next value for a log entry.
+
+1. One node becomes **leader**.
+2. Client sends a command to the leader.
+3. Leader proposes the command to all nodes.
+4. Leader waits for acknowledgments from **any 3 nodes (majority)**.
+5. Once a majority accepts:
+    - The value is **decided**.
+    - The leader commits and notifies followers.
+
+**Failure case**
+
+- Leader crashes after step 3.
+- Followers detect timeout.
+- A new leader is elected.
+- The new leader continues from the last committed entry.
+
+**Result**
+
+- No blocking.
+- Progress continues with a majority.
+
+### Key strengths
+
+- No single point of failure.
+- Safe recovery after crashes.
+- Prevents split-brain via epochs/terms.
+
+### Typical use cases
+
+- Leader election
+- Metadata management
+- Distributed locks
+- Linearizable key-value storage
+
+### Examples
+
+- ZooKeeper (ZAB)
+- etcd (Raft)
+- Consul (Raft)
+
+---
+
+## Paxos (consensus algorithm, powerful but complex)
+
+- Oldest widely-used consensus algorithm.
+- Very flexible, minimal assumptions.
+- Uses **ballot (proposal) numbers** to order leadership attempts.
+- Hard to understand, implement, and debug.
+- Safety is easy to get right; **liveness is subtle**.
+- Often optimized as **Multi-Paxos** for practical use.
+
+### How Paxos works (simplified example)
+
+**Scenario:** Decide a single value `V`.
+
+1. **Prepare phase**
+    - Proposer sends `PREPARE(n)` with proposal number `n`.
+    - Acceptors reply with:
+        - Promise not to accept proposals `< n`.
+        - The highest-numbered value they already accepted (if any).
+2. **Accept phase**
+    - Proposer selects:
+        - The highest-numbered previously accepted value, or
+        - Its own value if none exist.
+    - Sends `ACCEPT(n, V)` to acceptors.
+3. **Decision**
+    - If a majority accepts `ACCEPT(n, V)`, the value is chosen.
+
+**Failure case**
+
+- Multiple proposers race with different proposal numbers.
+- Higher-numbered proposals preempt lower ones.
+- Progress may stall unless one proposer stabilizes.
+
+**Result**
+
+- Very strong safety guarantees.
+- Liveness depends on careful coordination.
+
+### Operational characteristics
+
+- Leadership is implicit.
+- Fewer constraints → more room for misconfiguration.
+- Harder to reason about during incidents.
+
+### Examples
+
+- Google Chubby
+- Early Google Spanner internals
+- Some legacy distributed systems
+
+---
+
+## Raft (consensus algorithm, engineered for clarity)
+
+- Designed explicitly to be **understandable and implementable**.
+- Uses clear roles:
+    - Leader
+    - Follower
+    - Candidate
+- Uses **terms** to represent epochs.
+- Log replication and leader election are tightly specified.
+- Easier operational reasoning and debugging.
+
+### How Raft works (step-by-step example)
+
+**Scenario:** 3-node cluster appending a log entry.
+
+1. **Leader election**
+    - Followers time out.
+    - One node becomes a candidate, increments term.
+    - Requests votes from others.
+    - Receives majority → becomes leader.
+2. **Log replication**
+    - Client sends command to leader.
+    - Leader appends entry to its log.
+    - Leader sends `AppendEntries` to followers.
+    - Followers append and acknowledge.
+3. **Commit**
+    - Leader receives majority acknowledgments.
+    - Entry is committed.
+    - Leader notifies followers.
+
+**Failure case**
+
+- Leader crashes after appending but before commit.
+- New leader is elected.
+- Uncommitted entries may be rolled back safely.
+
+**Result**
+
+- Clear rules.
+- Predictable recovery.
+
+### Operational characteristics
+
+- Strong leader-centric model.
+- Clear invariants (log matching property).
+- Easier correctness reasoning for humans.
+
+### Examples
+
+- etcd
+- Consul
+- CockroachDB (inspired by Raft)
+- TiKV
+
+---
+
+## 2PC vs Consensus (Key Differences)
+
+- **Goal**
+    - 2PC: atomic commit of a single transaction
+    - Consensus: continuous agreement over time
+- **Coordinator / Leader**
+    - 2PC: fixed coordinator
+    - Consensus: dynamically elected leader
+- **Failure handling**
+    - 2PC: blocks on coordinator failure
+    - Consensus: recovers automatically if majority survives
+- **Votes required**
+    - 2PC: all participants
+    - Consensus: majority quorum
+- **Termination**
+    - 2PC: not guaranteed
+    - Consensus: guaranteed with majority
+
+### Concrete contrast example
+
+*2PC:*
+
+Coordinator crashes → participants freeze.
+
+*Consensus:*
+
+Leader crashes → new leader elected → system continues.
+
+---
+
+## Paxos vs Raft (Key Differences)
+
+- **Design goal**
+    - Paxos: theoretical minimalism
+    - Raft: practical understandability
+- **Leader concept**
+    - Paxos: implicit
+    - Raft: explicit
+- **Ease of implementation**
+    - Paxos: very hard
+    - Raft: much easier
+- **Operational clarity**
+    - Paxos: difficult during incidents
+    - Raft: predictable behavior
+- **Adoption trend**
+    - Paxos: declining for new systems
+    - Raft: dominant in modern systems
+
+### Practical takeaway example
+
+- Paxos: “We know it’s correct, but why is the cluster stuck?”
+- Raft: “Leader lost quorum in term 42; new election started.”
+
+---
