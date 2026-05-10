@@ -40,7 +40,7 @@ title: "Design pattern comparisons"
 | State | [patterns/behavioral/state/index.ts](../../../patterns/behavioral/state/index.ts) |
 | Strategy | [patterns/behavioral/strategy/index.ts](../../../patterns/behavioral/strategy/index.ts) |
 | Template method | [patterns/behavioral/template/index.ts](../../../patterns/behavioral/template/index.ts) |
-| Adapter | Not implemented in this repo yet |
+| Adapter | [patterns/structural/adapter/index.ts](../../../patterns/structural/adapter/index.ts) |
 
 ![image.png](../assets/design-patterns/document-1.png)
 
