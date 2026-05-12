@@ -13,7 +13,9 @@ Functional programming can be caracterized mainly by three factors:
 - Most of modern functional languages functions are first-class citizens: functions are just a just another data type, so, they can be assigned, passed as parameters
 - The preference for pure functions: given the same input, will always return the same output and does not have any observable side effect. This purity has a lot of benefits. It turns the code: cacheable, portable, testable, parallelizable
 
-# Pointfree
+# Design patterns
+
+## Pointfree
 
 Functional design patterns favor pointfree design: never having to say your data explicity.
 
@@ -24,8 +26,6 @@ const snakeCase = (word) => word.toLowerCase().replace(/\s+/gi, "_");
 // pointfree (but depends of replace been partially applied)
 const snakeCase = compose(replace(/\s+/gi, "_"), toLowerCase);
 ```
-
-# Design patterns
 
 ## Closure
 
