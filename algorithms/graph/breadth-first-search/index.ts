@@ -11,7 +11,7 @@ import { timer } from "../../utils/timer";
  * - O(V) for the queue and visited set
  *
  * **Typical use cases:**
- * - Graph traversal (level-order)
+ * - Graph traversal
  * - Shortest path in unweighted graphs
  * - Connected components detection
  * - Level-order traversal in trees
