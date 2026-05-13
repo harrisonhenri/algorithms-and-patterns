@@ -36,7 +36,7 @@ import { timer } from "../../utils/timer";
  * **Key BFS Invariants:**
  * 1. For each dequeued node, **ALL** unvisited neighbors are processed
  * 2. Visited marking happens **when enqueueing**, preventing duplicates
- * 3. Queue represents the entire frontier at each level
+ * 3. The queue represents the entire frontier (the boundary of discovered but not yet processed nodes) at each level
  * 4. Distances are correct because nodes are discovered level-by-level
  *
  * @param adjacencyMatrix 2D array where matrix[i][j] = 1 means edge i→j
