@@ -24,7 +24,7 @@ There are many forms of working with events:
 
 ## Event sourcing
 
-![image.png](../assets/microservices/image%201.png)
+![image.png](../assets/microservices/eda.png)
 
 ## Kafka x RabbitMQ
 
@@ -71,8 +71,6 @@ Use **RabbitMQ** when you need **immediate, short-lived task handling** or **req
 | **Not Ideal For**          | Real-time RPC, fine-grained per-message ordering                                  | Persistent event sourcing or analytics pipelines                                    |
 | **Typical Latency**        | ~5–50 ms typical (batching, replication, and config dependent)                    | < 1 ms to a few ms per message                                                      |
 
-![image.png](../assets/microservices/image%202.png)
+![image.png](../assets/microservices/system-design-cheat-sheet-1.png)
 
-![image.png](../assets/microservices/image%203.png)
-
-![Untitled](../assets/microservices/Untitled.png)
+![image.png](../assets/microservices/system-design-cheat-sheet-2.png)

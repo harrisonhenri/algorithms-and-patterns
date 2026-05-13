@@ -73,6 +73,14 @@ The four metrics from the [DORA research program](https://dora.dev/) that best p
 
 ---
 
+## Data Units Reference
+
+![image.png](../assets/miscellaneous/basic-units.png)
+
+Understanding data units is essential for capacity planning, performance estimation, and resource allocation. The table above shows how data units scale from individual bits up to terabytes, helping developers reason about storage requirements.
+
+---
+
 ## Further reading
 
 - [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)

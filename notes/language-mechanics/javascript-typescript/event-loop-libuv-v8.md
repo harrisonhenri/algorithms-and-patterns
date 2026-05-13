@@ -7,7 +7,7 @@ title: "Event loop, libuv, V8"
 
 Node.js and its dependencies:
 
-![image.png](../../assets/miscellaneous/image.png)
+![image.png](../../assets/miscellaneous/nodejs-internals.png)
 
 ---
 

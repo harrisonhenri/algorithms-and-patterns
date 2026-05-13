@@ -2,9 +2,10 @@
 tags: [architecture, ddd, theory]
 title: "Domain-Driven Design"
 ---
+
 # DDD
 
-![image.png](../assets/microservices/image.png)
+![image.png](../assets/microservices/ddd.png)
 
 ## Entities
 
@@ -45,14 +46,20 @@ class UserRegistered implements DomainEvent {
   readonly occurredAt = new Date();
   readonly name = "UserRegistered";
 
-  constructor(public readonly userId: string, public readonly email: string) {}
+  constructor(
+    public readonly userId: string,
+    public readonly email: string,
+  ) {}
 }
 
 // 3. User Aggregate Root
 class User {
   public readonly domainEvents: DomainEvent[] = [];
 
-  constructor(public readonly id: string, public readonly email: string) {}
+  constructor(
+    public readonly id: string,
+    public readonly email: string,
+  ) {}
 
   static register(id: string, email: string): User {
     const user = new User(id, email);
@@ -76,11 +83,11 @@ class DomainEventDispatcher {
 
   dispatch(event: DomainEvent) {
     const handlers = this.handlers[event.name] || [];
-    handlers.forEach(handler => handler(event));
+    handlers.forEach((handler) => handler(event));
   }
 
   dispatchAll(events: DomainEvent[]) {
-    events.forEach(event => this.dispatch(event));
+    events.forEach((event) => this.dispatch(event));
   }
 }
 

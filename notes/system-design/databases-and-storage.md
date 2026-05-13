@@ -2,6 +2,7 @@
 tags: [system-design, databases, storage, theory]
 title: "Databases and storage"
 ---
+
 # Indexes
 
 ## 📦 Why Indexes Exist
@@ -24,7 +25,6 @@ key,value
 To retrieve a value, the database may need to scan the whole file:
 
 > ❌ O(n) lookup → too slow for large datasets
-> 
 
 ---
 
@@ -83,7 +83,6 @@ Example:
 ### Key idea:
 
 > New writes append; old values are ignored
-> 
 
 ---
 
@@ -104,7 +103,6 @@ This creates **segment files**
 Now we improve logs:
 
 > Store data sorted by key
-> 
 
 ```
 handbag
@@ -197,13 +195,13 @@ B-Trees store data differently:
 
 ## ⚔️ LSM Tree vs B-Tree
 
-| Feature | LSM Tree | B-Tree |
-| --- | --- | --- |
-| Writes | Very fast | Slower |
-| Reads | Slower | Faster |
-| Storage | Efficient | Fragmented |
-| Compaction | Required | Not needed |
-| Write pattern | Sequential | Random |
+| Feature       | LSM Tree   | B-Tree     |
+| ------------- | ---------- | ---------- |
+| Writes        | Very fast  | Slower     |
+| Reads         | Slower     | Faster     |
+| Storage       | Efficient  | Fragmented |
+| Compaction    | Required   | Not needed |
+| Write pattern | Sequential | Random     |
 
 ---
 
@@ -212,7 +210,6 @@ B-Trees store data differently:
 Now we extend indexes to 2D space:
 
 > latitude + longitude
-> 
 
 ---
 
@@ -276,7 +273,6 @@ Even though they are only 30km apart.
 Opposite issue:
 
 > Long shared prefix but actually far apart
-> 
 
 ---
 
@@ -318,7 +314,6 @@ Instead of hashing, we split space:
 Split until:
 
 > each cell has ≤ N businesses (e.g. 100)
-> 
 
 ---
 
@@ -356,7 +351,6 @@ Instead of grid:
 ### Key idea:
 
 > Nearby points in 2D → close in 1D ordering
-> 
 
 ---
 
@@ -373,40 +367,35 @@ Instead of grid:
 All systems solve the same problem:
 
 > Convert 2D spatial search into efficient 1D indexing
-> 
 
 ---
 
 ## 📌 Summary
 
-| Technique | Idea |
-| --- | --- |
-| Hash index | Direct lookup |
-| LSM tree | Append + merge logs |
-| B-tree | Balanced page tree |
-| Geohash | Encode 2D → 1D string |
-| Quadtree | Recursive spatial partition |
-| S2 | Sphere → curve → 1D |
-
-
+| Technique  | Idea                        |
+| ---------- | --------------------------- |
+| Hash index | Direct lookup               |
+| LSM tree   | Append + merge logs         |
+| B-tree     | Balanced page tree          |
+| Geohash    | Encode 2D → 1D string       |
+| Quadtree   | Recursive spatial partition |
+| S2         | Sphere → curve → 1D         |
 
 ---
 
 # Databases
 
-| Type | Workload / System Pattern | Description | Tradeoffs | Use Cases | Examples | Key Takeaways |
-| --- | --- | --- | --- | --- | --- | --- |
-| **NewSQL Databases** | Distributed OLTP with balanced read/write workloads and strong consistency | Combines SQL, ACID guarantees, and horizontal scalability using distributed architectures and MVCC. | Excellent scalability and consistency, but operationally complex and sometimes immature compared to traditional RDBMS. | Global transactional systems, financial platforms, real-time distributed applications | CockroachDB, Google Spanner | Best for globally distributed transactional workloads requiring strong consistency |
-| **Relational Databases** | OLTP systems with structured, often read-heavy transactional workloads | Structured schema with relationships, SQL querying, and ACID compliance. | Excellent consistency and querying capabilities, but harder to scale horizontally and less flexible for unstructured data. | ERP, CRM, banking systems, transactional business applications | PostgreSQL, MySQL | Best for structured data and transactional consistency |
-| **Document Databases** (NoSQL) | Read-heavy or mixed workloads with flexible schemas | Stores semi-structured JSON-like documents with schema flexibility and denormalized access patterns. | Fast development and scalability, but weaker relational modeling and potential data duplication. | CMS, product catalogs, user profiles, microservices | MongoDB, CouchDB | Best for rapidly evolving semi-structured applications |
-| **Time-series Databases** (NoSQL) | Extremely write-heavy append-only telemetry workloads | Optimized for time-stamped data, sequential writes, compression, and retention policies. | Extremely efficient for temporal data, but limited for relational or general-purpose querying. | Monitoring, IoT, forecasting, financial ticks | InfluxDB, Prometheus, TimescaleDB | Best for metrics, telemetry, and forecasting systems |
-| **Graph Databases** (NoSQL) | Read-heavy relationship traversal workloads | Models entities as nodes and edges for efficient relationship exploration. | Excellent for connected data, but harder to scale and less efficient for tabular analytics. | Social networks, recommendation engines, fraud detection | Neo4j, ArangoDB | Best for highly connected and relationship-centric data |
-| **Key-Value Databases** (NoSQL) | Ultra-low-latency read/write workloads | Stores simple key-value pairs optimized for speed and scalability. | Extremely fast and scalable, but limited querying and weak relational capabilities. | Caching, sessions, gaming state, shopping carts | Redis, Amazon DynamoDB | Best for caching and ultra-low-latency access |
-| **Wide-column Databases** (NoSQL) | Massive-scale write-heavy distributed workloads | Stores data by columns for scalable distributed storage and high throughput. | Excellent scalability and ingestion performance, but more complex data modeling and weaker consistency in some systems. | Event pipelines, IoT, messaging, large-scale analytics | Apache Cassandra, HBase | Best for massive distributed workloads and high write throughput |
-| **Data Warehouse / OLAP Databases** | Read-heavy analytical and aggregation workloads | Columnar systems optimized for large-scale analytical queries and BI processing. | Extremely fast for aggregations and analytics, but poor for transactional workloads and frequent small writes. | BI, reporting, ML analytics, enterprise dashboards | Snowflake, Google BigQuery, ClickHouse | Best for large-scale analytics and reporting |
-| **Search Engines** | Read-heavy indexing and text-search workloads | Specialized systems optimized for indexing, ranking, and full-text search. | Excellent search capabilities and aggregation support, but usually unsuitable as primary transactional storage. | Product search, observability, log analytics, document indexing | Elasticsearch, Apache Solr | Best for search, indexing, and observability systems |
-
-
+| Type                                | Workload / System Pattern                                                  | Description                                                                                          | Tradeoffs                                                                                                                  | Use Cases                                                                             | Examples                               | Key Takeaways                                                                      |
+| ----------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- |
+| **NewSQL Databases**                | Distributed OLTP with balanced read/write workloads and strong consistency | Combines SQL, ACID guarantees, and horizontal scalability using distributed architectures and MVCC.  | Excellent scalability and consistency, but operationally complex and sometimes immature compared to traditional RDBMS.     | Global transactional systems, financial platforms, real-time distributed applications | CockroachDB, Google Spanner            | Best for globally distributed transactional workloads requiring strong consistency |
+| **Relational Databases**            | OLTP systems with structured, often read-heavy transactional workloads     | Structured schema with relationships, SQL querying, and ACID compliance.                             | Excellent consistency and querying capabilities, but harder to scale horizontally and less flexible for unstructured data. | ERP, CRM, banking systems, transactional business applications                        | PostgreSQL, MySQL                      | Best for structured data and transactional consistency                             |
+| **Document Databases** (NoSQL)      | Read-heavy or mixed workloads with flexible schemas                        | Stores semi-structured JSON-like documents with schema flexibility and denormalized access patterns. | Fast development and scalability, but weaker relational modeling and potential data duplication.                           | CMS, product catalogs, user profiles, microservices                                   | MongoDB, CouchDB                       | Best for rapidly evolving semi-structured applications                             |
+| **Time-series Databases** (NoSQL)   | Extremely write-heavy append-only telemetry workloads                      | Optimized for time-stamped data, sequential writes, compression, and retention policies.             | Extremely efficient for temporal data, but limited for relational or general-purpose querying.                             | Monitoring, IoT, forecasting, financial ticks                                         | InfluxDB, Prometheus, TimescaleDB      | Best for metrics, telemetry, and forecasting systems                               |
+| **Graph Databases** (NoSQL)         | Read-heavy relationship traversal workloads                                | Models entities as nodes and edges for efficient relationship exploration.                           | Excellent for connected data, but harder to scale and less efficient for tabular analytics.                                | Social networks, recommendation engines, fraud detection                              | Neo4j, ArangoDB                        | Best for highly connected and relationship-centric data                            |
+| **Key-Value Databases** (NoSQL)     | Ultra-low-latency read/write workloads                                     | Stores simple key-value pairs optimized for speed and scalability.                                   | Extremely fast and scalable, but limited querying and weak relational capabilities.                                        | Caching, sessions, gaming state, shopping carts                                       | Redis, Amazon DynamoDB                 | Best for caching and ultra-low-latency access                                      |
+| **Wide-column Databases** (NoSQL)   | Massive-scale write-heavy distributed workloads                            | Stores data by columns for scalable distributed storage and high throughput.                         | Excellent scalability and ingestion performance, but more complex data modeling and weaker consistency in some systems.    | Event pipelines, IoT, messaging, large-scale analytics                                | Apache Cassandra, HBase                | Best for massive distributed workloads and high write throughput                   |
+| **Data Warehouse / OLAP Databases** | Read-heavy analytical and aggregation workloads                            | Columnar systems optimized for large-scale analytical queries and BI processing.                     | Extremely fast for aggregations and analytics, but poor for transactional workloads and frequent small writes.             | BI, reporting, ML analytics, enterprise dashboards                                    | Snowflake, Google BigQuery, ClickHouse | Best for large-scale analytics and reporting                                       |
+| **Search Engines**                  | Read-heavy indexing and text-search workloads                              | Specialized systems optimized for indexing, ranking, and full-text search.                           | Excellent search capabilities and aggregation support, but usually unsuitable as primary transactional storage.            | Product search, observability, log analytics, document indexing                       | Elasticsearch, Apache Solr             | Best for search, indexing, and observability systems                               |
 
 ---
 
@@ -414,22 +403,30 @@ All systems solve the same problem:
 
 ## In-memory vs on-disk structures
 
-| **Characteristic** | **In-Memory** | **On-Disk** |
-| --- | --- | --- |
-| **Access speed** | Nanoseconds | Milliseconds (HDD) / Microseconds (SSD) |
-| **Random access** | Very fast (O(1) pointer deref) | Expensive (requires separate I/O operation) |
-| **Sequential access** | Very fast (prefetching, CPU cache) | Very fast (streaming reads/writes) |
-| **Best data structures** | Hash Tables, AVL/Red-Black Trees, Heaps, Skip Lists, Binary Search Trees, Graph adjacency lists, Bloom Filters | B-Trees, B+ Trees, LSM-Trees, SSTables, Heap files, Sorted runs, ISAM (Indexed Sequential Access Method) |
-| **Persistence** | No | Yes |
-| **Update pattern** | Frequent in-place updates (O(1) or O(log n)) | Append-only or batched updates (minimize random I/O) |
-| **Write pattern** | Random writes are fine | Sequential writes preferred (write-ahead logs, compaction) |
-| **Compression** | Optional (CPU can handle decompression cheaply) | Common (reduces I/O and disk footprint) |
-| **Concurrency control** | Fine-grained locks or lock-free (CAS, atomic ops) | Coarse-grained locking, transaction logs, journaling |
-| **Caching strategy** | CPU cache, LRU in-memory cache | Buffer pool, page cache |
-| **Examples of systems** | Redis, Memcached, Spark (in-memory RDDs), in-memory databases (H2, HSQLDB) | PostgreSQL, MySQL, LevelDB, RocksDB, Cassandra |
-| **Algorithms suited for** | Dijkstra’s, A*, in-memory sort (QuickSort, MergeSort in RAM) | External merge sort, external hash join, MapReduce shuffle/sort |
-| **Indexing** | In-memory hash index, radix tree (Trie), segment tree | B+ Tree index, LSM index, bitmap index |
-| **Search complexity** | O(1) or O(log n) — negligible I/O cost | O(logB n) — each node fetch = disk I/O |
-| **Durability** | Lost on restart unless checkpointed | Persistent; journaling ensures crash recovery |
+| **Characteristic**        | **In-Memory**                                                                                                  | **On-Disk**                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Access speed**          | Nanoseconds                                                                                                    | Milliseconds (HDD) / Microseconds (SSD)                                                                  |
+| **Random access**         | Very fast (O(1) pointer deref)                                                                                 | Expensive (requires separate I/O operation)                                                              |
+| **Sequential access**     | Very fast (prefetching, CPU cache)                                                                             | Very fast (streaming reads/writes)                                                                       |
+| **Best data structures**  | Hash Tables, AVL/Red-Black Trees, Heaps, Skip Lists, Binary Search Trees, Graph adjacency lists, Bloom Filters | B-Trees, B+ Trees, LSM-Trees, SSTables, Heap files, Sorted runs, ISAM (Indexed Sequential Access Method) |
+| **Persistence**           | No                                                                                                             | Yes                                                                                                      |
+| **Update pattern**        | Frequent in-place updates (O(1) or O(log n))                                                                   | Append-only or batched updates (minimize random I/O)                                                     |
+| **Write pattern**         | Random writes are fine                                                                                         | Sequential writes preferred (write-ahead logs, compaction)                                               |
+| **Compression**           | Optional (CPU can handle decompression cheaply)                                                                | Common (reduces I/O and disk footprint)                                                                  |
+| **Concurrency control**   | Fine-grained locks or lock-free (CAS, atomic ops)                                                              | Coarse-grained locking, transaction logs, journaling                                                     |
+| **Caching strategy**      | CPU cache, LRU in-memory cache                                                                                 | Buffer pool, page cache                                                                                  |
+| **Examples of systems**   | Redis, Memcached, Spark (in-memory RDDs), in-memory databases (H2, HSQLDB)                                     | PostgreSQL, MySQL, LevelDB, RocksDB, Cassandra                                                           |
+| **Algorithms suited for** | Dijkstra’s, A\*, in-memory sort (QuickSort, MergeSort in RAM)                                                  | External merge sort, external hash join, MapReduce shuffle/sort                                          |
+| **Indexing**              | In-memory hash index, radix tree (Trie), segment tree                                                          | B+ Tree index, LSM index, bitmap index                                                                   |
+| **Search complexity**     | O(1) or O(log n) — negligible I/O cost                                                                         | O(logB n) — each node fetch = disk I/O                                                                   |
+| **Durability**            | Lost on restart unless checkpointed                                                                            | Persistent; journaling ensures crash recovery                                                            |
+
+---
+
+## SQL Joins and Query Design
+
+![image.png](../assets/miscellaneous/joins.png)
+
+SQL JOINs are fundamental operations for combining data from multiple tables in relational queries. Different join types (INNER, LEFT, RIGHT, FULL, CROSS) determine which rows are included in the result set based on matching conditions between tables.
 
 ---
