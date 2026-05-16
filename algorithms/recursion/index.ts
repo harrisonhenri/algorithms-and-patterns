@@ -78,95 +78,18 @@
 /**
  * # Master Theorem for Recurrence Relations
  *
- * **Purpose:** Analyze time complexity of recursive algorithms using mathematical formula
+ * Master Theorem is primarily a **divide-and-conquer** analysis tool, not a general
+ * recursion rule. Keep the full explanation and case-by-case table centralized in:
+ * `algorithms/sort/divide-conquer/index.ts`
  *
- * **When to Use Master Theorem:**
- * - When your recurrence has the form: T(n) = a·T(n/b) + f(n)
- * - Divide-and-conquer problems (split into equal subproblems)
- * - More formal than execution tree method
+ * **Use it when recurrence matches:**
+ * T(n) = a·T(n/b) + f(n)
  *
- * **Form:** T(n) = a·T(n/b) + f(n)
+ * **Do not use it for:**
+ * - Unequal subproblem sizes (for example, Fibonacci: F(n-1), F(n-2))
+ * - Non-standard recurrences
  *
- * Where:
- * - a: number of recursive calls
- * - b: factor by which input shrinks
- * - f(n): cost of non-recursive work (combining results)
- *
- * **Three Cases (comparing f(n) to n^(log_b(a))):**
- *
- * **Case 1:** If f(n) = O(n^d) where d < log_b(a)
- * - Work is negligible vs recursive calls
- * - Result: T(n) = O(n^(log_b(a)))
- * - Example: T(n) = 2T(n/2) + O(1) → O(n) [d=0 < log_2(2)=1]
- *
- * **Case 1 Code Example: Binary Search Tree Search**
- * ```typescript
- * function searchBST(root: TreeNode | null, val: number): TreeNode | null {
- *   if (!root) return null;
- *   if (root.val === val) return root;
- *   if (val < root.val) return searchBST(root.left, val);  // T(n/2)
- *   return searchBST(root.right, val);                      // T(n/2)
- * }
- * // Recurrence: T(n) = 1·T(n/2) + O(1)
- * // a=1, b=2, f(n)=O(1), d=0 < log_2(1)=0 → Case 1 applies (technically)
- * // Actually: T(n) = O(log n) because we eliminate one branch
- * ```
- *
- * **Case 2:** If f(n) = O(n^d) where d = log_b(a)
- * - Work and recursive calls are balanced
- * - Result: T(n) = O(n^d · log n)
- * - Example: T(n) = 2T(n/2) + O(n) → O(n log n) [d=1 = log_2(2)=1]
- *
- * **Case 2 Code Example: Merge Sort**
- * ```typescript
- * function mergeSort(arr: number[]): number[] {
- *   if (arr.length <= 1) return arr;
- *
- *   const mid = Math.floor(arr.length / 2);
- *   const left = mergeSort(arr.slice(0, mid));    // T(n/2)
- *   const right = mergeSort(arr.slice(mid));      // T(n/2)
- *   return merge(left, right);                     // O(n) - merge operation
- * }
- * // Recurrence: T(n) = 2·T(n/2) + O(n)
- * // a=2, b=2, f(n)=O(n), d=1 = log_2(2)=1 → Case 2 applies
- * // Result: T(n) = O(n log n)
- * ```
- *
- * **Case 3:** If f(n) = O(n^d) where d > log_b(a)
- * - Work dominates the recursive calls
- * - Result: T(n) = O(f(n))
- * - Example: T(n) = T(n/2) + O(n²) → O(n²) [d=2 > log_2(1)=0]
- *
- * **Case 3 Code Example: Inefficient Recursion**
- * ```typescript
- * function inefficientSearch(arr: number[], target: number, low: number, high: number): boolean {
- *   if (low > high) return false;
- *
- *   const mid = Math.floor((low + high) / 2);
- *   if (arr[mid] === target) return true;
- *
- *   // Unnecessarily process entire subarray
- *   const sumLeft = arr.slice(low, mid).reduce((a, b) => a + b, 0);  // O(n)
- *
- *   if (target < arr[mid]) {
- *     return inefficientSearch(arr, target, low, mid - 1);  // T(n/2)
- *   }
- *   return inefficientSearch(arr, target, mid + 1, high);   // T(n/2)
- * }
- * // Recurrence: T(n) = 1·T(n/2) + O(n)
- * // a=1, b=2, f(n)=O(n), d=1 > log_2(1)=0 → Case 3 applies
- * // Result: T(n) = O(n) - dominated by merge work
- * ```
- *
- * **Applications Summary:**
- * - Fibonacci with memoization: T(n) = T(n-1) + T(n-2) + O(1) → O(n)
- * - Binary Search: T(n) = T(n/2) + O(1) → O(log n)
- * - Merge Sort: T(n) = 2T(n/2) + O(n) → O(n log n)
- * - Quick Sort (average): T(n) = 2T(n/2) + O(n) → O(n log n)
- *
- * **Limitation:**
- * Master Theorem doesn't directly apply to linear recurrences (like Fibonacci).
- * For those, use execution tree analysis or closed-form formulas instead.
+ * In this recursion guide, prefer execution-tree reasoning and memoization analysis.
  */
 
 /**

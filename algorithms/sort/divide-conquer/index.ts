@@ -12,7 +12,9 @@
  * - Recursion is just a *tool* for implementation
  * - D&C breaks problem into **multiple subproblems** (n ≥ 2)
  * - Other recursive algorithms (e.g., Binary Search) solve a **single subproblem** per call
- *   (known as "Decrease and Conquer")
+ *   (known as **Decrease and Conquer**)
+ * - Binary Search is the canonical decrease-and-conquer example:
+ *   it discards half and continues, with no meaningful combine phase
  *
  * ## Three Steps of Divide and Conquer
  *
@@ -63,7 +65,7 @@
  * | ------------------- | -------- | --------- | ------- | ----- |
  * | **Merge Sort**      | ✔        | ✔         | ✔       | Divides into 2 halves, merges results |
  * | **Quick Sort**      | ✔        | ✔         | ✔       | Divides by pivot, concatenates partitions |
- * | **Binary Search**   | ✔        | trivial   | ✔       | Divides, but only searches one side |
+ * | **Binary Search**   | ✔        | ✘         | ✘       | Decrease-and-conquer: discard half, recurse into one side |
  * | **Strassen's Algo** | ✔        | ✔         | ✔       | Matrix multiplication: 7 subproblems |
  * | **Tower of Hanoi**  | ✔        | ✔         | ✔       | Divides into n-1 and 1 disk |
  * | **Factorial**       | ✘        | ✘         | ✘       | Single recursive call, not dividing |
@@ -96,8 +98,8 @@
  * Master Theorem (also called Master Method) provides a systematic way to calculate
  * the time complexity of divide-and-conquer algorithms without analyzing each case individually.
  *
- * **Important:** Master Theorem is an advanced technique that doesn't apply to all recursive
- * algorithms. It specifically applies to algorithms where subproblems are of **equal size**.
+ * **Important:** Master Theorem is a standard technique for analyzing
+ * divide-and-conquer recurrences. It specifically applies to algorithms where subproblems are of **equal size**.
  *
  * ### The Master Theorem Formula
  *
@@ -112,7 +114,8 @@
  * - `n/b` = size of each subproblem
  * - `f(n)` = cost of dividing problem and combining results
  *
- * We can express `f(n)` as `O(n^d)` where `d ≥ 0`
+ * For this guide, we use the common simplified form `f(n) = O(n^d)` where `d ≥ 0`.
+ * More general variants also handle terms like `Theta(n^d log^k n)`.
  *
  * ### Three Cases of Master Theorem
  *
@@ -125,13 +128,12 @@
  * **Intuition:** The work to divide and combine is dwarfed by the work of subproblems.
  * The overall complexity reduces to just the subproblem complexity.
  *
- * **Example: DFS on Binary Tree**
- * - a = 2 (visit left and right subtrees)
- * - b = 2 (problem size reduced by half)
- * - f(n) = O(1) (constant work per node), so d = 0
- * - Since 0 < log₂(2) = 1, Case 1 applies
- * - Result: T(n) = O(n^1) = O(n) ✓
- * - Makes sense: visit each of n nodes once
+ * **Example: Strassen's Matrix Multiplication**
+ * - a = 7 (seven recursive multiplications)
+ * - b = 2 (matrix dimensions halved)
+ * - f(n) = O(n²) (matrix additions), so d = 2
+ * - Since 2 < log₂(7) ≈ 2.81, Case 1 applies
+ * - Result: T(n) = O(n^log₂(7)) = O(n^2.81) ✓
  *
  * #### Case 2: f(n) is balanced with subproblem work
  * **Condition:** `a = b^d` (i.e., `d = log_b(a)`)
@@ -174,11 +176,11 @@
  *
  * | Algorithm | a | b | d | Condition | Case | Result |
  * |-----------|---|---|---|-----------|------|--------|
- * | DFS / Tree Traversal | 2 | 2 | 0 | 0 < 1 | 1 | O(n) |
+ * | Strassen's Matrix Mult. | 7 | 2 | 2 | 2 < log₂(7)≈2.81 | 1 | O(n^2.81) |
  * | Merge Sort | 2 | 2 | 1 | 1 = 1 | 2 | O(n log n) |
  * | Binary Search | 1 | 2 | 0 | 0 = 0 | 2 | O(log n) |
  * | QuickSelect | 1 | 2 | 1 | 1 > 0 | 3 | O(n) |
- * | Strassen's Matrix Mult. | 7 | 2 | 2 | 2 < log₂(7)≈2.81 | 1 | O(n^2.81) |
+ * | Karatsuba Multiplication | 3 | 2 | 1 | 1 < log₂(3)≈1.58 | 1 | O(n^1.58) |
  *
  * ### Limitations of Master Theorem
  *
@@ -190,6 +192,8 @@
  * - Subproblems are of **different sizes**
  *   - Example: Fibonacci F(n) = F(n-1) + F(n-2)
  *   - Here subproblems are F(n-1) and F(n-2) (different sizes)
+ *   - Example: QuickSort worst-case T(n) = T(n-1) + O(n)
+ *   - Partitions are highly unbalanced, so n/b equal-size assumption does not hold
  * - The recurrence doesn't match the standard pattern
  * - Recursive work is not uniform across branches
  *
@@ -210,14 +214,17 @@
  * - **Conquer:** Recursively sort partitions
  * - **Combine:** Concatenate (left + pivot + right)
  * - **Complexity:** O(n log n) average, O(n²) worst
+ * - **Recurrence caveat:**
+ *   - Average-case is often modeled as T(n) ≈ 2T(n/2) + O(n)
+ *   - Worst-case is T(n) = T(n-1) + O(n), which Master Theorem does not cover
  * - **Use:** Fast average case, in-place
  *
  * ### 3. Binary Search
  * - **Divide:** Compare with middle element
  * - **Conquer:** Search only left OR right half (not both)
- * - **Combine:** Trivial (return index or search result)
+ * - **Combine:** None (discard one half and continue)
  * - **Complexity:** O(log n)
- * - **Note:** "Decrease and Conquer" (single subproblem)
+ * - **Note:** **Decrease and Conquer** (single subproblem), not classic D&C
  *
  * ## When to Use Divide and Conquer
  *
@@ -298,7 +305,7 @@
  * **3. COMBINE:**
  * - Return **true** if BOTH subtrees are valid BSTs
  * - Return **false** if EITHER subtree is invalid
- * - Verify constraints: all left subtree values < node < all right subtree values
+ * - Verify constraints using propagated value bounds (min/max), not subtree rescans
  *
  * ### Example Tree
  *
@@ -325,24 +332,18 @@
  * ### Implementation Pattern
  *
  * ```typescript
- * function isValidBST(node): boolean {
+ * function isValidBST(node, min = -Infinity, max = Infinity): boolean {
  *   // Base case: empty tree or single node
  *   if (node === null) return true
  *
- *   // Divide: into left and right subtrees
- *   leftSubtree = node.left
- *   rightSubtree = node.right
+ *   // Combine constraint from ancestors first
+ *   if (node.value <= min || node.value >= max) return false
  *
- *   // Conquer: recursively validate each subtree
- *   isLeftValid = isValidBST(leftSubtree)
- *   isRightValid = isValidBST(rightSubtree)
- *
- *   // Combine: check all constraints
- *   if (!isLeftValid || !isRightValid) return false
- *   if (allValuesInLeft >= node.value) return false
- *   if (allValuesInRight <= node.value) return false
- *
- *   return true
+ *   // Conquer with propagated bounds
+ *   return (
+ *     isValidBST(node.left, min, node.value) &&
+ *     isValidBST(node.right, node.value, max)
+ *   )
  * }
  * ```
  *
@@ -366,9 +367,13 @@
  * ```
  *
  * **Solutions:**
- * 1. Pass min/max bounds to each recursive call
+ * 1. Pass min/max bounds to each recursive call (most efficient and standard)
  * 2. Return both validation result and min/max values
  * 3. Collect all values in subtrees and verify constraints
+
+ * **Recommended framing:**
+ * The most efficient approach propagates valid value ranges (min/max constraints)
+ * down the recursion tree.
  *
  * ## References
  * - [1] Divide and Conquer. Wikipedia: https://en.wikipedia.org/wiki/Divide-and-conquer_algorithm

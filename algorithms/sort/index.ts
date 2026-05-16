@@ -72,13 +72,61 @@
  *
  * ### External Sorting
  *
- * **External sorting** handles data sets exceeding RAM on slower storage (disks/SSDs).
- * MergeSort dominates here because it requires **sequential access** (efficient for disk I/O),
- * while QuickSort's random access causes excessive disk seeks. MergeSort's merge phase also
- * optimizes disk reads/writes, making it ideal for staged sorting: load memory-sized chunks,
- * sort in-memory, merge with minimal I/O.
+ * **External sorting** handles datasets too large to fit into RAM,
+ * requiring algorithms optimized for disks/SSDs where I/O dominates cost.
  *
- * **Summary:** In-memory = QuickSort (cache + in-place). Disk = MergeSort (sequential access + optimized I/O).
+ * It is important to distinguish:
+ *
+ * - **CPU cache locality (RAM-oriented)**
+ * - **Disk locality / sequential I/O (storage-oriented)**
+ *
+ * QuickSort is often faster in-memory because it has excellent cache locality,
+ * in-place partitioning, and low allocation overhead.
+ *
+ * However, external sorting behaves differently.
+ *
+ * MergeSort dominates external sorting because it relies primarily on
+ * **sequential access patterns**, which are highly efficient for disk I/O:
+ *
+ * ```
+ * Read chunk A forward
+ * Read chunk B forward
+ * Write merged output forward
+ * ```
+ *
+ * Sequential streaming minimizes:
+ *
+ * - disk seeks
+ * - random access overhead
+ * - scattered reads/writes
+ *
+ * This is especially important for HDDs, where random seeks are extremely expensive.
+ *
+ * A typical external merge sort pipeline:
+ *
+ * 1. Load memory-sized chunks
+ * 2. Sort each chunk in RAM
+ * 3. Write sorted chunks back to disk
+ * 4. Merge chunks sequentially with minimal I/O
+ *
+ * Example:
+ *
+ * ```
+ * 500 GB dataset
+ * 16 GB RAM
+ * ```
+ *
+ * External merge sort is widely used in:
+ *
+ * - databases (`ORDER BY`, indexing)
+ * - Hadoop / MapReduce
+ * - Spark
+ * - ETL and log-processing pipelines
+ *
+ * In summary:
+ *
+ * - QuickSort optimizes CPU cache locality for in-memory sorting
+ * - MergeSort optimizes sequential disk I/O for external sorting
  *
  * ### Choosing a Sorting Algorithm
  *
