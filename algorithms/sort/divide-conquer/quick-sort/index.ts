@@ -9,6 +9,9 @@ import { timer } from "../../../utils/timer";
  * faster than its competitors like merge sort, which is why it gained its name and remains
  * the default choice in most standard library implementations.
  *
+ * **Background:** For foundational divide-and-conquer concepts and theory,
+ * see `algorithms/recursion/index.ts` - Divide & Conquer section.
+ *
  * ## How Quicksort Works
  *
  * The algorithm follows three divide-and-conquer steps:

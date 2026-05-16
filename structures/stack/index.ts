@@ -10,11 +10,14 @@
  * - Browser history navigation
  *
  * **Time Complexity:**
- * - `push()` → **O(1)**
+ * - `push()` → **O(1) amortized** (occasional resize reallocates array)
  * - `pop()` → **O(1)**
  * - `peek()` → **O(1)**
+ * - `getBuffer()` → **O(n)** (creates a copy via slice)
  *
  * **Note:** Access to elements other than the top takes O(n).
+ * JavaScript arrays use dynamic allocation, so `push()` is amortized O(1),
+ * meaning most operations are O(1) but occasional resizes cost O(n).
  * Similar trade-offs exist between Stacks and Queues.
  *
  * **Interview intuition:** "Process in reverse (LIFO)"
@@ -49,25 +52,27 @@ export class Stack<T> {
   }
 }
 
-const stack = new Stack();
-stack.push(1);
-stack.push(2);
-stack.push(3);
+if (require.main === module) {
+  const stack = new Stack();
+  stack.push(1);
+  stack.push(2);
+  stack.push(3);
 
-function stackAccessNthTopNode<T>(stack: Stack<T>, n: number) {
-  if (n <= 0) {
-    throw new Error("n must be greater than 0");
+  function stackAccessNthTopNode<T>(stack: Stack<T>, n: number) {
+    if (n <= 0) {
+      throw new Error("n must be greater than 0");
+    }
+
+    const bufferArray = stack.getBuffer();
+    const buffer = new Stack(bufferArray);
+
+    while (--n !== 0) {
+      buffer.pop();
+    }
+
+    return buffer.pop();
   }
 
-  const bufferArray = stack.getBuffer();
-  const buffer = new Stack(bufferArray);
-
-  while (--n !== 0) {
-    buffer.pop();
-  }
-
-  return buffer.pop();
+  console.log(stackAccessNthTopNode(stack, 1));
+  console.log(stack);
 }
-
-console.log(stackAccessNthTopNode(stack, 1));
-console.log(stack);

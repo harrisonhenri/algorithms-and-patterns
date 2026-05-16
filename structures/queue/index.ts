@@ -9,9 +9,14 @@
  * - Message buffering
  *
  * **Time Complexity:**
- * - `enqueue()` → **O(1)**
- * - `dequeue()` → **O(1)**
+ * - `enqueue()` → **O(1) amortized** (occasional resize reallocates array)
+ * - `dequeue()` → **O(1)** (uses head pointer increment, avoids costly shift())
  * - `peek()` → **O(1)**
+ * - `getBuffer()` → **O(n)** (creates a copy via slice)
+ *
+ * **Memory consideration:** Dequeued elements remain in the array; periodic
+ * compaction is used to reclaim memory. Without compaction, array.length grows
+ * indefinitely even as logical queue shrinks.
  *
  * **Note:** The limitation is that access to non-first elements takes O(n).
  * Similar trade-offs exist between Stacks and Queues.

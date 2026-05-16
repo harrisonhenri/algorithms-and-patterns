@@ -45,9 +45,17 @@ import { timer } from "../../../utils/timer";
  * 2. **Small Arrays:** Empirically fastest on small collections. Many production sorting
  *    libraries (e.g., Java's Arrays.sort()) use insertion sort for arrays below a threshold.
  *
- * 3. **Stable:** Preserves relative order of equal elements.
+ * 3. **Cache-Friendly:** Sequential memory access patterns make insertion sort extremely
+ *    efficient on modern CPUs:
+ *    - Iterates left-to-right through array (spatial locality)
+ *    - Works within CPU cache lines, reducing cache misses
+ *    - Minimal jumps to non-adjacent memory locations
+ *    - Can be 2-5× faster than theoretically faster O(n log n) sorts on small-medium arrays
+ *      due to better cache utilization (why it's used as base case in quicksort/mergesort)
  *
- * 4. **Practical:** Actually used in real systems, not just theoretical.
+ * 4. **Stable:** Preserves relative order of equal elements.
+ *
+ * 5. **Practical:** Actually used in real systems, not just theoretical.
  *
  * ### Disadvantages
  *
@@ -60,6 +68,7 @@ import { timer } from "../../../utils/timer";
  * - Nearly sorted data (small number of inversions)
  * - Stability required
  * - When simplicity and in-place operation matter
+ * - When cache locality is important (embedded systems, performance-critical code)
  *
  * ### When to Avoid
  *

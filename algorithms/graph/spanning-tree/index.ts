@@ -1,3 +1,7 @@
+import { buildAdjacencyList } from "../../utils/build-adjacency-list";
+import { DisjointSet } from "../../../structures/disjoint-set";
+import { MinHeap } from "../../../structures/heap/min-heap";
+
 /**
  * Spanning Tree and Minimum Spanning Tree (MST) algorithms.
  *
@@ -31,10 +35,6 @@
  *
  * @date 16/01/2026 - 00:00:00
  */
-
-import { buildAdjacencyList } from "../../utils/build-adjacency-list";
-import { DisjointSet } from "../../../structures/disjoint-set";
-import { MinHeap } from "../../../structures/heap/min-heap";
 
 /**
  * Edge representation for graph algorithms.
@@ -73,7 +73,7 @@ type Edge = {
  */
 function findSpanningTreeDFS(
   n: number,
-  edges: [number, number][]
+  edges: [number, number][],
 ): [number, number][] {
   // Build adjacency list
   const graph = buildAdjacencyList(n, edges);
@@ -144,7 +144,7 @@ function minCostConnectPoints(points: [number, number][]): number {
     cost: number;
     point1: number;
     point2: number;
-  }>();
+  }>((a, b) => a.cost - b.cost);
 
   // Calculate distances between all pairs of points
   // Using Manhattan distance: |x1-x2| + |y1-y2|
@@ -165,8 +165,6 @@ function minCostConnectPoints(points: [number, number][]): number {
   // Process edges in order of increasing cost
   while (edgesAdded < n - 1 && edgeHeap.size() > 0) {
     const edge = edgeHeap.poll();
-
-    if (!edge) break;
 
     const { cost, point1, point2 } = edge;
 
@@ -220,7 +218,7 @@ function minCostConnectPoints(points: [number, number][]): number {
  */
 function kruskalMST(
   n: number,
-  edges: Edge[]
+  edges: Edge[],
 ): {
   edges: Edge[];
   totalWeight: number;
@@ -289,7 +287,7 @@ function kruskalMST(
  */
 function primMST(
   n: number,
-  adjacencyMatrix: number[][]
+  adjacencyMatrix: number[][],
 ): {
   edges: Edge[];
   totalWeight: number;
@@ -303,7 +301,9 @@ function primMST(
 
   // Use MinHeap to efficiently extract minimum weight edge
   // Store edges as objects: { weight, u, v }
-  const edgeHeap = new MinHeap<{ weight: number; u: number; v: number }>();
+  const edgeHeap = new MinHeap<{ weight: number; u: number; v: number }>(
+    (a, b) => a.weight - b.weight,
+  );
 
   // Add all edges from vertex 0
   for (let v = 1; v < n; v++) {
@@ -314,8 +314,6 @@ function primMST(
 
   while (mstEdges.length < n - 1 && edgeHeap.size() > 0) {
     const edge = edgeHeap.poll();
-
-    if (!edge) break;
 
     const { weight, u, v } = edge;
 
@@ -358,7 +356,7 @@ if (require.main === module) {
   console.log("Graph edges:", edges1);
   console.log("Spanning tree edges:", spanningTree);
   console.log(
-    `Spanning tree has ${spanningTree.length} edges (expected: ${n1 - 1})\n`
+    `Spanning tree has ${spanningTree.length} edges (expected: ${n1 - 1})\n`,
   );
 
   console.log("=== Minimum Spanning Tree (Kruskal's with Coordinates) ===");
@@ -390,7 +388,7 @@ if (require.main === module) {
   console.log("MST edges (Kruskal's):", mstKruskal.edges);
   console.log("Total weight:", mstKruskal.totalWeight);
   console.log(
-    `MST has ${mstKruskal.edges.length} edges (expected: ${n2 - 1})\n`
+    `MST has ${mstKruskal.edges.length} edges (expected: ${n2 - 1})\n`,
   );
 
   console.log("=== Minimum Spanning Tree (Prim's) ===");
@@ -411,7 +409,7 @@ if (require.main === module) {
 
   console.log("=== Comparison ===");
   console.log(
-    `Kruskal's and Prim's both find MST with weight: ${mstKruskal.totalWeight} = ${mstPrim.totalWeight}`
+    `Kruskal's and Prim's both find MST with weight: ${mstKruskal.totalWeight} = ${mstPrim.totalWeight}`,
   );
 }
 

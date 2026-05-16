@@ -27,6 +27,52 @@
  * **Why it Matters:**
  * - Converts exponential algorithms O(2^n) into polynomial ones O(n) or O(n²)
  * - Essential for interview problems (Fibonacci, Climbing Stairs, Coin Change, etc.)
+ *
+ * **Example 1: Fibonacci - Without Optimization (O(2^n))**
+ * ```typescript
+ * function fibNaive(n: number): number {
+ *   if (n <= 1) return n;
+ *   return fibNaive(n - 1) + fibNaive(n - 2);
+ * }
+ * // Problem: Recalculates same values multiple times
+ * // fibNaive(5) calls: fibNaive(4) + fibNaive(3)
+ * //                   = (fibNaive(3) + fibNaive(2)) + (fibNaive(2) + fibNaive(1))
+ * // Notice fibNaive(3) and fibNaive(2) are calculated multiple times!
+ * ```
+ *
+ * **Example 2: Fibonacci - Top-Down DP/Memoization (O(n))**
+ * ```typescript
+ * function fibMemo(n: number, memo: Map<number, number> = new Map()): number {
+ *   if (n <= 1) return n;
+ *   if (memo.has(n)) return memo.get(n)!;
+ *
+ *   const result = fibMemo(n - 1, memo) + fibMemo(n - 2, memo);
+ *   memo.set(n, result);
+ *   return result;
+ * }
+ * // Cache stores computed values to avoid recomputation
+ * // Same recursion structure but with memoization layer
+ * ```
+ *
+ * **Example 3: Fibonacci - Bottom-Up DP/Tabulation (O(n))**
+ * ```typescript
+ * function fibTab(n: number): number {
+ *   if (n <= 1) return n;
+ *   const dp = [0, 1];
+ *
+ *   for (let i = 2; i <= n; i++) {
+ *     dp[i] = dp[i - 1] + dp[i - 2];
+ *   }
+ *   return dp[n];
+ * }
+ * // Build solution iteratively from bottom up
+ * // More intuitive and avoids recursion overhead
+ * ```
+ *
+ * **Comparison:**
+ * - fibNaive(40): ~1 second (2^40 ≈ 1 trillion calls)
+ * - fibMemo(40): ~0.001 seconds (only 40 unique subproblems)
+ * - fibTab(40): ~0.001 seconds (simple iteration)
  */
 
 /**
@@ -53,20 +99,70 @@
  * - Result: T(n) = O(n^(log_b(a)))
  * - Example: T(n) = 2T(n/2) + O(1) → O(n) [d=0 < log_2(2)=1]
  *
+ * **Case 1 Code Example: Binary Search Tree Search**
+ * ```typescript
+ * function searchBST(root: TreeNode | null, val: number): TreeNode | null {
+ *   if (!root) return null;
+ *   if (root.val === val) return root;
+ *   if (val < root.val) return searchBST(root.left, val);  // T(n/2)
+ *   return searchBST(root.right, val);                      // T(n/2)
+ * }
+ * // Recurrence: T(n) = 1·T(n/2) + O(1)
+ * // a=1, b=2, f(n)=O(1), d=0 < log_2(1)=0 → Case 1 applies (technically)
+ * // Actually: T(n) = O(log n) because we eliminate one branch
+ * ```
+ *
  * **Case 2:** If f(n) = O(n^d) where d = log_b(a)
  * - Work and recursive calls are balanced
  * - Result: T(n) = O(n^d · log n)
  * - Example: T(n) = 2T(n/2) + O(n) → O(n log n) [d=1 = log_2(2)=1]
+ *
+ * **Case 2 Code Example: Merge Sort**
+ * ```typescript
+ * function mergeSort(arr: number[]): number[] {
+ *   if (arr.length <= 1) return arr;
+ *
+ *   const mid = Math.floor(arr.length / 2);
+ *   const left = mergeSort(arr.slice(0, mid));    // T(n/2)
+ *   const right = mergeSort(arr.slice(mid));      // T(n/2)
+ *   return merge(left, right);                     // O(n) - merge operation
+ * }
+ * // Recurrence: T(n) = 2·T(n/2) + O(n)
+ * // a=2, b=2, f(n)=O(n), d=1 = log_2(2)=1 → Case 2 applies
+ * // Result: T(n) = O(n log n)
+ * ```
  *
  * **Case 3:** If f(n) = O(n^d) where d > log_b(a)
  * - Work dominates the recursive calls
  * - Result: T(n) = O(f(n))
  * - Example: T(n) = T(n/2) + O(n²) → O(n²) [d=2 > log_2(1)=0]
  *
- * **Applications:**
+ * **Case 3 Code Example: Inefficient Recursion**
+ * ```typescript
+ * function inefficientSearch(arr: number[], target: number, low: number, high: number): boolean {
+ *   if (low > high) return false;
+ *
+ *   const mid = Math.floor((low + high) / 2);
+ *   if (arr[mid] === target) return true;
+ *
+ *   // Unnecessarily process entire subarray
+ *   const sumLeft = arr.slice(low, mid).reduce((a, b) => a + b, 0);  // O(n)
+ *
+ *   if (target < arr[mid]) {
+ *     return inefficientSearch(arr, target, low, mid - 1);  // T(n/2)
+ *   }
+ *   return inefficientSearch(arr, target, mid + 1, high);   // T(n/2)
+ * }
+ * // Recurrence: T(n) = 1·T(n/2) + O(n)
+ * // a=1, b=2, f(n)=O(n), d=1 > log_2(1)=0 → Case 3 applies
+ * // Result: T(n) = O(n) - dominated by merge work
+ * ```
+ *
+ * **Applications Summary:**
  * - Fibonacci with memoization: T(n) = T(n-1) + T(n-2) + O(1) → O(n)
  * - Binary Search: T(n) = T(n/2) + O(1) → O(log n)
  * - Merge Sort: T(n) = 2T(n/2) + O(n) → O(n log n)
+ * - Quick Sort (average): T(n) = 2T(n/2) + O(n) → O(n log n)
  *
  * **Limitation:**
  * Master Theorem doesn't directly apply to linear recurrences (like Fibonacci).
@@ -83,19 +179,122 @@
  *
  * Therefore: **O(T) = R × O(s)**
  *
- * **Example 1: String Reversal (printReverse)**
+ * **Example 1: String Reversal (printReverse) - O(n)**
  * Problem: Print string in reverse order
- * Recurrence: printReverse(str) = printReverse(str[1...n]) + print(str[0])
- * - Number of invocations: R = n (length of string)
+ *
+ * ```typescript
+ * function printReverse(str: string, index: number = str.length - 1): void {
+ *   if (index < 0) return;  // Base case
+ *   console.log(str[index]);
+ *   printReverse(str, index - 1);  // Recurse on smaller index
+ * }
+ * // Usage: printReverse("hello")
+ * // Output: o, l, l, e, h
+ * ```
+ *
+ * Complexity Analysis:
+ * - Number of invocations: R = n (one for each character)
  * - Work per invocation: O(s) = O(1) (print one character)
  * - Total complexity: O(T) = n × O(1) = O(n)
  *
- * **Example 2: Fibonacci (Without Optimization)**
+ * **Example 2: Fibonacci (Without Optimization) - O(2^n)**
  * Problem: Calculate F(n) where F(n) = F(n-1) + F(n-2)
- * - Recurrence has 2 branches at each level
- * - Forms a binary execution tree
- * - Total invocations grows exponentially
- * - Total complexity: O(T) = O(2^n)
+ *
+ * ```typescript
+ * function fib(n: number): number {
+ *   if (n <= 1) return n;
+ *   return fib(n - 1) + fib(n - 2);
+ * }
+ * // fib(5) execution tree:
+ * //                fib(5)
+ * //              /        \\
+ * //          fib(4)        fib(3)
+ * //         /      \\      /      \\
+ * //     fib(3)    fib(2) fib(2)  fib(1)
+ * //    /    \\    /   \\  /   \\
+ * // fib(2) fib(1) ...
+ * ```
+ *
+ * Complexity Analysis:
+ * - Each call creates 2 branches (binary tree of calls)
+ * - Tree height: n
+ * - Number of leaves: 2^n
+ * - Total invocations: R = 2^n
+ * - Work per invocation: O(s) = O(1) (just addition)
+ * - Total complexity: O(T) = 2^n × O(1) = O(2^n) ❌ EXPONENTIAL!
+ *
+ * **Example 3: Sum Array - O(n)**
+ * Problem: Sum all elements in array recursively
+ *
+ * ```typescript
+ * function sumArray(arr: number[], index: number = 0): number {
+ *   if (index === arr.length) return 0;  // Base case
+ *   return arr[index] + sumArray(arr, index + 1);  // Add + recurse
+ * }
+ * // Usage: sumArray([1, 2, 3, 4, 5]) → 15
+ * ```
+ *
+ * Complexity Analysis:
+ * - Linear call chain: sumArray(5) → sumArray(4) → ... → sumArray(0)
+ * - Number of invocations: R = n
+ * - Work per invocation: O(s) = O(1) (just addition)
+ * - Total complexity: O(T) = n × O(1) = O(n)
+ *
+ * **Example 4: Power Calculation (Exponentiation) - O(log n)**
+ * Problem: Calculate x^n efficiently
+ *
+ * ```typescript
+ * function power(x: number, n: number): number {
+ *   if (n === 0) return 1;  // Base case
+ *   if (n < 0) return 1 / power(x, -n);
+ *   if (n % 2 === 0) {
+ *     const half = power(x, n / 2);
+ *     return half * half;  // x^n = (x^(n/2))^2
+ *   }
+ *   return x * power(x, n - 1);  // x^n = x * x^(n-1)
+ * }
+ * // Usage: power(2, 10) → 1024
+ * // power(2, 10) → power(2, 5) * power(2, 5)
+ * //             → (2 * power(2, 4)) * (2 * power(2, 4))
+ * //             → 2 * (power(2, 2))^2 * 2 * (power(2, 2))^2
+ * //             → depth is O(log n) due to dividing by 2
+ * ```
+ *
+ * Complexity Analysis:
+ * - Each call divides n by 2 (or does a constant amount of work)
+ * - Call chain: power(n) → power(n/2) → power(n/4) → ... → power(1)
+ * - Number of invocations: R = log₂(n)
+ * - Work per invocation: O(s) = O(1) (just multiplication/comparison)
+ * - Total complexity: O(T) = log₂(n) × O(1) = O(log n) ✓ OPTIMAL!
+ *
+ * **Example 5: Tree Traversal - O(n)**
+ * Problem: Traverse all nodes in a binary tree
+ *
+ * ```typescript
+ * function traverseTree(node: TreeNode | null): number {
+ *   if (!node) return 0;  // Base case
+ *
+ *   const leftCount = traverseTree(node.left);    // Visit left subtree
+ *   const rightCount = traverseTree(node.right);  // Visit right subtree
+ *   return 1 + leftCount + rightCount;  // Count this node + children
+ * }
+ * // Binary tree with 7 nodes requires 7 calls
+ * ```
+ *
+ * Complexity Analysis:
+ * - Must visit every node in tree exactly once
+ * - Number of invocations: R = n (number of nodes)
+ * - Work per invocation: O(s) = O(1) (process current node)
+ * - Total complexity: O(T) = n × O(1) = O(n)
+ *
+ * **Complexity Comparison Summary:**
+ * | Algorithm | Calls | Work/Call | Total | Status |
+ * |-----------|-------|-----------|-------|--------|
+ * | Print String | n | O(1) | O(n) | ✓ Linear |
+ * | Fibonacci Naive | 2^n | O(1) | O(2^n) | ❌ Exponential |
+ * | Sum Array | n | O(1) | O(n) | ✓ Linear |
+ * | Power(x, n) | log n | O(1) | O(log n) | ✓ Logarithmic |
+ * | Tree Traversal | n | O(1) | O(n) | ✓ Linear |
  */
 
 /**
@@ -797,54 +996,491 @@
  *
  * **Example: Tail vs Non-Tail Recursion**
  *
- * Non-Tail (Factorial):
- * ```
- * function factorial(n) {
+ * **Non-Tail (Factorial):**
+ * ```typescript
+ * function factorial(n: number): number {
  *   if (n <= 1) return 1;
- *   return n * factorial(n - 1);  // Multiplication AFTER call - NOT tail
+ *   return n * factorial(n - 1);  // Computation AFTER call (n * ...)
+ * }
+ * // Call stack grows:
+ * // factorial(5)
+ * //   → 5 * factorial(4)
+ * //       → 4 * factorial(3)
+ * //           → 3 * factorial(2)
+ * //               → 2 * factorial(1)
+ * //                   → 1
+ * //
+ * // Must unwind entire chain because of multiplication pending
+ * // Stack: [factorial(5), factorial(4), factorial(3), factorial(2), factorial(1)]
+ * // Space: O(n)
+ * ```
+ *
+ * **Tail Recursive (Factorial with Accumulator):**
+ * ```typescript
+ * function factorialTail(n: number, acc: number = 1): number {
+ *   if (n <= 1) return acc;  // Base case returns accumulated result
+ *   return factorialTail(n - 1, n * acc);  // Tail call: ONLY recursive call
+ * }
+ * // No computation after recursive call!
+ * // Call pattern:
+ * // factorialTail(5, 1)
+ * //   → factorialTail(4, 5)
+ * //       → factorialTail(3, 20)
+ * //           → factorialTail(2, 60)
+ * //               → factorialTail(1, 120)
+ * //                   → 120
+ * //
+ * // With TCO: Reuses same stack frame
+ * // Stack: [factorialTail(...)]  ← Same frame reused
+ * // Space: O(1) with TCO, O(n) without
+ * ```
+ *
+ * **Tail Recursive (Print Reverse - Cleaner Example):**
+ * ```typescript
+ * function printReverseTail(str: string, index: number = str.length - 1): void {
+ *   if (index < 0) return;  // Base case
+ *   console.log(str[index]);  // Process current position
+ *   printReverseTail(str, index - 1);  // Tail call - nothing after!
+ * }
+ * // Each call: process one character, then call next
+ * // No computation pending when returning
+ * // Perfect candidate for TCO
+ * ```
+ *
+ * **Converting to Tail Recursion (Accumulator Pattern):**
+ *
+ * Pattern: Move all computation **into parameters** using accumulator
+ *
+ * ```typescript
+ * // Before (Non-Tail): Computation after call
+ * function sum(arr: number[], i: number): number {
+ *   if (i === arr.length) return 0;
+ *   return arr[i] + sum(arr, i + 1);  // Addition AFTER call ❌
+ * }
+ *
+ * // After (Tail): Computation in parameters via accumulator
+ * function sumTail(arr: number[], i: number, acc: number = 0): number {
+ *   if (i === arr.length) return acc;  // Return accumulated result
+ *   return sumTail(arr, i + 1, acc + arr[i]);  // Addition BEFORE call ✓
  * }
  * ```
- * Problem: Must wait for f(n-1) to return, then multiply by n
- * Stack grows: f(5) → f(4) → f(3) → f(2) → f(1)
  *
- * Tail Recursion (Factorial with Accumulator):
- * ```
- * function factorial(n, acc = 1) {
- *   if (n <= 1) return acc;
- *   return factorial(n - 1, n * acc);  // Tail call - last instruction
- * }
- * ```
- * Benefit: All computation done in parameters; recursive call is last
- * Stack reused: Each call reuses same space
+ * **TCO Support by Language:**
  *
- * **Compiler Support by Language:**
+ * | Language | TCO Support | Notes |
+ * |----------|-------------|-------|
+ * | C/C++ | Yes | Compiler optimization enabled with -O flag |
+ * | JavaScript | Partial | Only Safari (ES6), not Chrome/Node.js |
+ * | Python | No | Guido van Rossum intentionally disabled it |
+ * | Java | No | JVM doesn't support TCO |
+ * | Lisp/Scheme | Yes | Full support, idiomatic |
+ * | Rust | Limited | Only in specific cases |
+ * | Go | Yes | Partial support in some cases |
+ * | Scala | Yes | Via @tailrec annotation |
  *
- * **Languages with TCO Support (Recommended):**
- * - C/C++: Compiler automatically optimizes tail recursion
- * - Scheme: Guaranteed tail call optimization
- * - Scala: Supports @tailrec annotation for verification
- * - Functional languages (Haskell, Lisp): Built-in support
- *
- * **Languages WITHOUT Native TCO:**
- * - Java: No built-in tail recursion optimization
- *   - Workaround: Use trampoline pattern with lambdas/streams
- *   - Alternative: Convert to iterative approach
- * - Python: Intentionally doesn't support TCO (design choice)
- *   - Reason: Preserves readable stack traces for debugging
- *   - Workaround: Use @lru_cache or convert to iteration
- *   - Alternative: Tail recursion library or manual TCO
- *   - Reference: https://stackoverflow.com/questions/13591970/does-python-optimize-tail-recursion
- * - JavaScript: Some engines optimize (V8, SpiderMonkey), not guaranteed
- *
- * **Practical Implications:**
- *
- * **Best Practice:**
- * 1. In C/C++ or Scheme: Use tail recursion for deep recursion (avoids stack overflow)
- * 2. In Java/Python: Convert to iteration or use accumulator parameters anyway
- * 3. Always: If recursion depth could exceed stack limit, consider iterative solution
+ * **In JavaScript/TypeScript:**
+ * - Safari implements TCO for tail-recursive functions
+ * - Chrome, Node.js do NOT implement TCO
+ * - For safe tail recursion in all environments:
+ *   - Convert to iteration (for/while loop)
+ *   - Use trampolining technique
+ *   - Or accept O(n) space requirement
  *
  * **When to Use Tail Recursion:**
- * ✅ Recursive algorithm with limited stack space
+ * - ✅ Language supports TCO (C/C++, Scheme, Scala)
+ * - ✅ Processing sequences one element at a time
+ * - ✅ Linear recursion (not branching)
+ * - ✅ Need to avoid stack overflow for large n
+ * - ❌ Language doesn't support TCO (JavaScript, Python, Java)
+ * - ❌ Need branching recursion (tree traversal, backtracking)
+ *
+ * **Practical Advice for Interviews:**
+ * - In JavaScript: Avoid relying on TCO, convert to loops if needed
+ * - Mention TCO pattern to show understanding, but know its limitations
+ * - Prioritize readability: sometimes loop-based solution is clearer
+ * - For exponential algorithms: memoization > TCO for complexity reduction
+ */
+
+/**
+ * # Backtracking: Exploring All Possibilities Systematically
+ *
+ * **Definition:**
+ * Backtracking is a recursion technique that explores all possible solutions by:
+ * 1. Building solution step by step
+ * 2. Checking constraints at each step
+ * 3. **Abandoning paths** that violate constraints (pruning)
+ * 4. Recovering to try alternative paths
+ *
+ * **Key Insight:**
+ * Unlike simple recursion that explores all paths,
+ * backtracking **prunes invalid paths early**, avoiding exponential waste.
+ *
+ * **Backtracking vs Brute Force:**
+ * - Brute Force: Generate all possibilities, then filter
+ * - Backtracking: Prune invalid possibilities during exploration
+ * - Backtracking is faster: avoids generating invalid solutions
+ *
+ * **Backtracking Template:**
+ * ```typescript
+ * function backtrack(current: any[], constraints: any): void {
+ *   // Base case: solution found
+ *   if (isComplete(current)) {
+ *     solutions.push([...current]);
+ *     return;
+ *   }
+ *
+ *   // Try each candidate
+ *   for (const candidate of getCandidates(current)) {
+ *     // Check constraints (pruning)
+ *     if (isValid(current, candidate)) {
+ *       // Make choice
+ *       current.push(candidate);
+ *
+ *       // Explore recursively
+ *       backtrack(current, constraints);
+ *
+ *       // Undo choice (backtrack)
+ *       current.pop();
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * **Example 1: Generate Permutations**
+ * ```typescript
+ * function permute(nums: number[]): number[][] {
+ *   const result: number[][] = [];
+ *   const current: number[] = [];
+ *   const used = new Set<number>();
+ *
+ *   function backtrack(): void {
+ *     // Base: all numbers used
+ *     if (current.length === nums.length) {
+ *       result.push([...current]);
+ *       return;
+ *     }
+ *
+ *     // Try each number
+ *     for (const num of nums) {
+ *       if (!used.has(num)) {  // Pruning: skip if already used
+ *         current.push(num);
+ *         used.add(num);
+ *
+ *         backtrack();  // Explore
+ *
+ *         current.pop();  // Undo
+ *         used.delete(num);
+ *       }
+ *     }
+ *   }
+ *
+ *   backtrack();
+ *   return result;
+ * }
+ * // Usage: permute([1, 2, 3])
+ * // Output: [[1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3,2,1]]
+ * // Time: O(n! · n) - n! permutations × n to copy each
+ * ```
+ *
+ * **Example 2: N-Queens Problem**
+ * ```typescript
+ * function solveNQueens(n: number): string[][] {
+ *   const result: string[][] = [];
+ *   const board = Array(n).fill('.'.repeat(n));  // n×n board
+ *   const cols = new Set<number>();
+ *   const diag1 = new Set<number>();  // row - col
+ *   const diag2 = new Set<number>();  // row + col
+ *
+ *   function backtrack(row: number): void {
+ *     if (row === n) {  // Placed all queens
+ *       result.push([...board]);
+ *       return;
+ *     }
+ *
+ *     for (let col = 0; col < n; col++) {
+ *       // Pruning: Check if position is safe
+ *       if (!cols.has(col) && !diag1.has(row - col) && !diag2.has(row + col)) {
+ *         // Place queen
+ *         board[row] = board[row].slice(0, col) + 'Q' + board[row].slice(col + 1);
+ *         cols.add(col);
+ *         diag1.add(row - col);
+ *         diag2.add(row + col);
+ *
+ *         backtrack(row + 1);  // Try next row
+ *
+ *         // Remove queen (undo)
+ *         board[row] = board[row].slice(0, col) + '.' + board[row].slice(col + 1);
+ *         cols.delete(col);
+ *         diag1.delete(row - col);
+ *         diag2.delete(row + col);
+ *       }
+ *     }
+ *   }
+ *
+ *   backtrack(0);
+ *   return result;
+ * }
+ * // Time: O(N!) worst case, but pruning eliminates most branches
+ * // For N=8: Only 92 solutions exist out of 8! = 40,320 possibilities
+ * ```
+ *
+ * **Example 3: Subset Sum**
+ * ```typescript
+ * function findSubsets(target: number, nums: number[]): number[][] {
+ *   const result: number[][] = [];
+ *   const current: number[] = [];
+ *
+ *   function backtrack(index: number, sum: number): void {
+ *     // Base: reached target
+ *     if (sum === target) {
+ *       result.push([...current]);
+ *       return;
+ *     }
+ *
+ *     // Pruning: exceeded target
+ *     if (sum > target || index === nums.length) {
+ *       return;
+ *     }
+ *
+ *     // Include current number
+ *     current.push(nums[index]);
+ *     backtrack(index + 1, sum + nums[index]);
+ *     current.pop();
+ *
+ *     // Exclude current number
+ *     backtrack(index + 1, sum);
+ *   }
+ *
+ *   backtrack(0, 0);
+ *   return result;
+ * }
+ * // Usage: findSubsets(7, [2, 3, 5])
+ * // Output: [[2,5], [3, 2, 2], ...]  subsets that sum to 7
+ * // Pruning: If sum > target, stop exploring that branch
+ * ```
+ *
+ * **Why Backtracking is Powerful:**
+ *
+ * **Advantage 1: Early Termination (Pruning)**
+ * - N-Queens: Detect conflict early (queen in same column/diagonal)
+ * - Subset Sum: Stop if sum exceeds target
+ * - Reduces actual work from O(2^n) to manageable size
+ *
+ * **Advantage 2: Space-Efficient**
+ * - Only maintains current path (recursive stack)
+ * - No need to store all intermediate solutions
+ * - Space: O(n) for recursion depth + current solution
+ *
+ * **Advantage 3: Natural Problem Decomposition**
+ * - Problems naturally break into "try all choices"
+ * - Matches human problem-solving approach
+ * - Easier to understand than nested loops
+ *
+ * **Complexity Trade-offs:**
+ *
+ * | Problem | Brute Force | Backtracking | Improvement |
+ * |---------|---|---|---|
+ * | Permutations | O(n! · n) | O(n! · n) | None (all valid) |
+ * | N-Queens (n=8) | O(2^(64)) | O(92 solutions) | 10^18× faster! |
+ * | Subset Sum | O(2^n) | O(2^n) pruned | Depends on target |
+ * | Sudoku | O(9^81) | Heavily pruned | 10^10× faster |
+ *
+ * **When to Use Backtracking:**
+ * - ✅ Need all solutions (not just one)
+ * - ✅ Problem has constraints (prune invalid branches)
+ * - ✅ Solution builds step-by-step
+ * - ✅ State space is large but pruning helps
+ * - ❌ Need only one solution (early termination + return)
+ * - ❌ No constraints to prune (becomes brute force)
+ * - ❌ Problem can be solved greedily or with DP
+ */
+
+/**
+ * # Divide & Conquer: Recursive Problem Decomposition
+ *
+ * **Definition:**
+ * Divide & Conquer is a recursive approach that solves problems by:
+ * 1. **Divide**: Break problem into smaller independent subproblems
+ * 2. **Conquer**: Recursively solve each subproblem
+ * 3. **Combine**: Merge subproblem solutions into final answer
+ *
+ * **Key Characteristic:**
+ * Subproblems are **independent** (no overlap between them)
+ * - Opposite of Dynamic Programming (which has overlapping subproblems)
+ * - Each subproblem solved exactly once
+ *
+ * **Divide & Conquer vs Dynamic Programming:**
+ *
+ * | Aspect | Divide & Conquer | Dynamic Programming |
+ * |--------|---|---|
+ * | Subproblems | **Independent** | Overlapping |
+ * | Solved | Once each | Multiple times (cached) |
+ * | Approach | Recursive decomposition | Memoization or tabulation |
+ * | Time | Usually O(n log n) | Depends, often O(n²) |
+ * | When to use | Binary search, merge sort | Fibonacci, LCS, coin change |
+ *
+ * **Example 1: Merge Sort (Classic Divide & Conquer)**
+ * ```typescript
+ * function mergeSort(arr: number[]): number[] {
+ *   // Base case: single element is sorted
+ *   if (arr.length <= 1) return arr;
+ *
+ *   // DIVIDE: Split into two halves
+ *   const mid = Math.floor(arr.length / 2);
+ *   const left = arr.slice(0, mid);
+ *   const right = arr.slice(mid);
+ *
+ *   // CONQUER: Recursively sort each half
+ *   const sortedLeft = mergeSort(left);
+ *   const sortedRight = mergeSort(right);
+ *
+ *   // COMBINE: Merge sorted halves
+ *   return merge(sortedLeft, sortedRight);
+ * }
+ *
+ * function merge(left: number[], right: number[]): number[] {
+ *   const result: number[] = [];
+ *   let i = 0, j = 0;
+ *
+ *   while (i < left.length && j < right.length) {
+ *     if (left[i] <= right[j]) {
+ *       result.push(left[i++]);
+ *     } else {
+ *       result.push(right[j++]);
+ *     }
+ *   }
+ *   result.push(...left.slice(i), ...right.slice(j));
+ *   return result;
+ * }
+ * // Time: O(n log n) via Master Theorem
+ * // Space: O(n) for temporary arrays
+ * ```
+ *
+ * **Example 2: Quick Sort (Divide & Conquer)**
+ *
+ * Quick Sort is a highly practical divide-and-conquer algorithm that:
+ * - Partitions around a pivot value
+ * - Recursively sorts left (smaller) and right (larger) sublists
+ * - Achieves O(n log n) average time with better cache locality than Merge Sort
+ *
+ * For detailed quicksort implementation, complexity analysis, pivot strategies,
+ * and practical considerations, see: `algorithms/sort/divide-conquer/quick-sort/index.ts`
+ *
+ * **Brief Example:**
+ * ```typescript
+ * function quickSort(arr: number[], low: number = 0, high: number = arr.length - 1): void {
+ *   if (low < high) {
+ *     const pi = partition(arr, low, high);  // DIVIDE: Partition around pivot
+ *     quickSort(arr, low, pi - 1);           // CONQUER: Sort left half
+ *     quickSort(arr, pi + 1, high);          // CONQUER: Sort right half
+ *   }
+ * }
+ * // Time: O(n log n) average, O(n²) worst case
+ * // Space: O(log n) recursion depth
+ * ```
+ *
+ *
+ * **Example 3: Binary Search (Divide & Conquer)**
+ * ```typescript
+ * function binarySearch(arr: number[], target: number): number {
+ *   function search(low: number, high: number): number {
+ *     if (low > high) return -1;  // Base: not found
+ *
+ *     const mid = Math.floor((low + high) / 2);
+ *
+ *     if (arr[mid] === target) return mid;       // Found
+ *     if (arr[mid] > target)
+ *       return search(low, mid - 1);             // DIVIDE: search left
+ *     return search(mid + 1, high);              // DIVIDE: search right
+ *   }
+ *   return search(0, arr.length - 1);
+ * }
+ * // Time: O(log n) - eliminates half on each call
+ * // Space: O(log n) recursion depth
+ * ```
+ *
+ * **Example 4: Count Inversions (Divide & Conquer)**
+ * An inversion is a pair (i, j) where i < j but arr[i] > arr[j]
+ * ```typescript
+ * function countInversions(arr: number[]): number {
+ *   if (arr.length <= 1) return 0;
+ *
+ *   const mid = Math.floor(arr.length / 2);
+ *   const left = arr.slice(0, mid);
+ *   const right = arr.slice(mid);
+ *
+ *   // Count inversions in each half
+ *   const leftInversions = countInversions(left);
+ *   const rightInversions = countInversions(right);
+ *
+ *   // Count inversions across halves (during merge)
+ *   const merged: number[] = [];
+ *   let crossInversions = 0;
+ *   let i = 0, j = 0;
+ *
+ *   while (i < left.length && j < right.length) {
+ *     if (left[i] <= right[j]) {
+ *       merged.push(left[i++]);
+ *     } else {
+ *       // left[i] > right[j]: all remaining left elements form inversions
+ *       crossInversions += left.length - i;
+ *       merged.push(right[j++]);
+ *     }
+ *   }
+ *   merged.push(...left.slice(i), ...right.slice(j));
+ *
+ *   // In real implementation, return inversion count and sorted array
+ *   return leftInversions + rightInversions + crossInversions;
+ * }
+ * // Time: O(n log n) - counts inversions while merging
+ * // Without D&C: O(n²) to count all pairs
+ * ```
+ *
+ * **Divide & Conquer Master Theorem Application:**
+ * Form: T(n) = a·T(n/b) + f(n)
+ *
+ * | Algorithm | a | b | f(n) | Result |
+ * |---|---|---|---|---|
+ * | Merge Sort | 2 | 2 | O(n) | O(n log n) |
+ * | Quick Sort (avg) | 2 | 2 | O(n) | O(n log n) |
+ * | Binary Search | 1 | 2 | O(1) | O(log n) |
+ * | Count Inversions | 2 | 2 | O(n) | O(n log n) |
+ * | Strassen Matrix | 7 | 2 | O(1) | O(n^2.81) |
+ *
+ * **When to Use Divide & Conquer:**
+ * - ✅ Problem breaks naturally into independent subproblems
+ * - ✅ Subproblems are similar to original (recursive structure)
+ * - ✅ Combining solutions is straightforward
+ * - ✅ Want O(n log n) or O(log n) complexity
+ * - ❌ Subproblems overlap (use DP instead)
+ * - ❌ Can solve greedily
+ * - ❌ Sequential/linear approach is simpler
+ */
+
+/**
+ * # Tail Recursion & Tail Call Optimization (TCO)
+ *
+ * **Definition:**
+ * Tail recursion is a special case where the recursive call is the **final instruction**
+ * in the function, with **no additional computation** after the recursive call returns.
+ *
+ * **Tail Recursion Pattern:**
+ * ```
+ * function f(x) {
+ *   if (baseCase(x)) return base_value;
+ *   // No computation after this line!
+ *   return f(next_value);  // Last thing executed
+ * }
+ * ```
+ *
+ * **Non-Tail Recursion Pattern (Computation After Call):**
+ * ```
+ * function f(x) {
+ *   if (baseCase(x)) return base_value;
+ *   result = f(x - 1);       // Recursive call
+ *   return result + x;       // Computation AFTER call - NOT tail recursive!
+ * }
+ * ```
  * ✅ Language with guaranteed TCO support
  * ✅ Replacement for loops (accumulator pattern)
  * ❌ When you need information from previous calls (non-tail)

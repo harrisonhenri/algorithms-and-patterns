@@ -1,6 +1,53 @@
 ---
-tags: [system-design, databases, storage, theory]
+tags: [system-design, databases, storage, data-modeling, theory]
 title: "Databases and storage"
+---
+
+# Data Model
+
+A **data model** is a structured way to represent, organize, and interact with data in software systems. It defines:
+
+- **What data** is stored
+- **How it is structured**
+- **How it can be accessed and manipulated**
+
+---
+
+## Layers of Data Models
+
+Most software applications are built by **layering data models** on top of each other. Each layer hides the complexity of the one below it.
+
+| Layer                             | Description                                            | Example                                            |
+| --------------------------------- | ------------------------------------------------------ | -------------------------------------------------- |
+| **1. Application Layer**          | Models the real world using objects or data structures | Classes for `User`, `Order`, etc.                  |
+| **2. General-Purpose Data Model** | Maps structures to a database-friendly format          | Relational (SQL), Document (JSON), Graph           |
+| **3. Storage Engine**             | Manages low-level representation of data               | Indexes, memory structures, serialization          |
+| **4. Hardware Layer**             | Stores data as physical signals                        | Electrical currents, light pulses, magnetic fields |
+
+## Why Data Models Matter
+
+- They **shape how we think** about the problem we're solving.
+- They influence **how data is stored, queried, and processed**.
+- The wrong model can make certain tasks **slow, awkward, or impossible**.
+- Choosing the right model helps you build **efficient, maintainable software**.
+
+## Choosing the Right Data Model
+
+Different models have different strengths:
+
+| Data Model     | Best For                                           | Format          | Example                           |
+| -------------- | -------------------------------------------------- | --------------- | --------------------------------- |
+| **Relational** | Structured, tabular data with strong relationships | Tables          | SQL databases (PostgreSQL, MySQL) |
+| **Document**   | Semi-structured or nested data                     | JSON, BSON, XML | MongoDB, CouchDB                  |
+| **Graph**      | Complex, interconnected data                       | Nodes and Edges | Neo4j, ArangoDB                   |
+
+Each model has trade-offs in:
+
+- **Query performance**
+- **Schema flexibility**
+- **Ease of use**
+- **Scalability**
+
 ---
 
 # Indexes
@@ -396,6 +443,288 @@ All systems solve the same problem:
 | **Wide-column Databases** (NoSQL)   | Massive-scale write-heavy distributed workloads                            | Stores data by columns for scalable distributed storage and high throughput.                         | Excellent scalability and ingestion performance, but more complex data modeling and weaker consistency in some systems.    | Event pipelines, IoT, messaging, large-scale analytics                                | Apache Cassandra, HBase                | Best for massive distributed workloads and high write throughput                   |
 | **Data Warehouse / OLAP Databases** | Read-heavy analytical and aggregation workloads                            | Columnar systems optimized for large-scale analytical queries and BI processing.                     | Extremely fast for aggregations and analytics, but poor for transactional workloads and frequent small writes.             | BI, reporting, ML analytics, enterprise dashboards                                    | Snowflake, Google BigQuery, ClickHouse | Best for large-scale analytics and reporting                                       |
 | **Search Engines**                  | Read-heavy indexing and text-search workloads                              | Specialized systems optimized for indexing, ranking, and full-text search.                           | Excellent search capabilities and aggregation support, but usually unsuitable as primary transactional storage.            | Product search, observability, log analytics, document indexing                       | Elasticsearch, Apache Solr             | Best for search, indexing, and observability systems                               |
+
+---
+
+# Sharding (Data Partitioning)
+
+## 🎯 What is Sharding?
+
+**Sharding** is a horizontal scaling technique that splits data across multiple independent database instances (shards), where each shard holds a subset of the total dataset. Unlike replication (where each node holds all data), sharding distributes data so that no single node contains the complete dataset.
+
+### Key Idea:
+
+> Divide data into smaller chunks and distribute them across multiple machines to improve throughput and reduce load on any single server.
+
+---
+
+## 🔑 Sharding Strategies
+
+### 1. **Range-Based Sharding**
+
+Partition data by key ranges.
+
+**Example:**
+
+```
+Shard 1: user_ids 1-1,000,000
+Shard 2: user_ids 1,000,001-2,000,000
+Shard 3: user_ids 2,000,001-3,000,000
+```
+
+**Advantages:**
+
+- Simple to understand and implement
+- Range queries are efficient within a shard
+- Easy to add new shards for expanding ranges
+
+**Disadvantages:**
+
+- ❌ **Hot shards**: If data distribution is uneven (e.g., most users in range 1), one shard becomes a bottleneck
+- ❌ Risk of unbalanced load across shards
+
+---
+
+### 2. **Hash-Based Sharding**
+
+Apply a hash function to the shard key to determine which shard stores the data.
+
+**Example:**
+
+```
+shard_id = hash(user_id) % num_shards
+
+hash(42) % 3 = 0 → Shard 1
+hash(99) % 3 = 1 → Shard 2
+hash(156) % 3 = 2 → Shard 3
+```
+
+**Advantages:**
+
+- Distributes data uniformly across shards (assuming good hash function)
+- Automatically balances load
+
+**Disadvantages:**
+
+- ❌ **Scaling problem**: Adding/removing shards requires rehashing all keys (expensive)
+- ❌ Range queries are inefficient (records span multiple shards)
+- ❌ Requires consistent hashing to minimize redistribution
+
+---
+
+### 3. **Directory-Based Sharding**
+
+Maintain a lookup table that maps shard keys to shard locations.
+
+**Example:**
+
+```
+Directory:
+user_id → shard location
+42 → Shard 1
+99 → Shard 2
+156 → Shard 3
+```
+
+**Advantages:**
+
+- Flexible and can adapt to any partitioning strategy
+- Easy to rebalance (update directory)
+- No reshuffling of data across network
+
+**Disadvantages:**
+
+- ❌ Adds latency (lookup required before each query)
+- ❌ Directory becomes a single point of failure
+- ❌ Directory must be cached or replicated for performance
+
+---
+
+### 4. **Geographic Sharding**
+
+Partition data based on geographic location (region, country, continent).
+
+**Example:**
+
+```
+Shard 1 (North America): users in US, Canada
+Shard 2 (Europe): users in EU, UK
+Shard 3 (Asia): users in China, India, Japan
+```
+
+**Advantages:**
+
+- Improves latency (data closer to users)
+- Helps with data residency/compliance (GDPR, etc.)
+
+**Disadvantages:**
+
+- ❌ Uneven distribution if populations vary
+- ❌ Cross-region queries require distributed joins
+- ❌ Complex failover and replication strategies
+
+---
+
+## ⚖️ Sharding vs. Replication
+
+| Aspect            | Sharding                         | Replication                    |
+| ----------------- | -------------------------------- | ------------------------------ |
+| **Data**          | Each node holds a subset         | Each node holds all data       |
+| **Scaling Read**  | Distributes reads across shards  | Scales reads via replicas      |
+| **Scaling Write** | Distributes writes across shards | Limited (bottleneck at master) |
+| **Consistency**   | Eventual (within shard = strong) | Can be strong or eventual      |
+| **Failover**      | Shard unavailable = data loss    | Replicas provide redundancy    |
+| **Query**         | May span multiple shards         | Any replica can answer         |
+
+---
+
+## 🎯 Shard Key Selection
+
+The **shard key** is critical for performance. It determines how data is distributed.
+
+### Good Shard Keys:
+
+- ✅ Distribute data **evenly** across shards
+- ✅ Minimize **cross-shard queries**
+- ✅ Support **query patterns** in your application
+
+### Bad Shard Keys:
+
+- ❌ `is_active` (too many hot records on one shard)
+- ❌ `timestamp` (all new data goes to one shard)
+- ❌ `country` (if one country dominates traffic)
+
+### Examples:
+
+| Use Case          | Good Shard Key       | Why                                       |
+| ----------------- | -------------------- | ----------------------------------------- |
+| User service      | `user_id`            | Evenly distributed, supports user queries |
+| E-commerce        | `customer_id`        | Orders/transactions naturally grouped     |
+| Multi-tenant SaaS | `tenant_id`          | Isolates tenant data, scales per tenant   |
+| Time-series       | `metric_name + time` | Distributes across metrics + time windows |
+
+---
+
+## ⚠️ Challenges of Sharding
+
+### 1. **Cross-Shard Queries**
+
+Queries that span multiple shards are expensive:
+
+```sql
+-- Needs to query all shards
+SELECT * FROM users WHERE country = 'USA'
+```
+
+**Solution**: Use materialized views or denormalization
+
+---
+
+### 2. **Distributed Transactions**
+
+ACID guarantees become harder across shards:
+
+```sql
+-- Updates user in Shard 1 AND order in Shard 2?
+-- How to ensure both succeed or both fail?
+```
+
+**Solutions**:
+
+- Two-phase commit (slow, risky)
+- Saga pattern (eventual consistency)
+- Keep related data on same shard
+
+---
+
+### 3. **Rebalancing (Shard Migration)**
+
+When growth requires moving data between shards:
+
+```
+Add Shard 4: Need to rebalance ~25% of data from other shards
+```
+
+**Challenges**:
+
+- Time-consuming
+- Risk of downtime
+- Requires careful coordination
+
+---
+
+### 4. **Hotspots (Load Imbalance)**
+
+If shard key distribution is skewed:
+
+```
+Shard 1: 1 million users  ← HOT
+Shard 2: 100,000 users
+Shard 3: 100,000 users
+```
+
+**Solutions**:
+
+- Re-choose shard key (difficult, expensive)
+- Use micro-sharding (subdivide hot shard further)
+- Implement per-shard caching
+
+---
+
+## 🛠️ When to Shard
+
+**Start sharding when:**
+
+- Single database reaches capacity (storage, QPS, connections)
+- Write throughput exceeds single node limits
+- Geographic distribution improves user experience
+- Tenant isolation is a requirement
+
+**Avoid sharding if:**
+
+- Data fits on one powerful machine
+- Queries are complex and span many dimensions
+- Team lacks experience (adds significant complexity)
+
+---
+
+## 📊 Sharding + Replication Pattern
+
+Most production systems combine both:
+
+```
+┌─────────────────────────────────────┐
+│ Application                          │
+└────────────────────┬────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+    Shard 1      Shard 2      Shard 3
+    (Primary)    (Primary)    (Primary)
+        │            │            │
+    ┌───┴────┐   ┌───┴────┐  ┌───┴────┐
+    ▼        ▼   ▼        ▼  ▼        ▼
+  Replica  Replica Replica Replica Replica Replica
+```
+
+**Benefits:**
+
+- Sharding scales writes
+- Replication scales reads + provides failover
+- Data is distributed and redundant
+
+---
+
+## 💡 Real-World Examples
+
+| System         | Strategy                             | Notes                                       |
+| -------------- | ------------------------------------ | ------------------------------------------- |
+| MongoDB        | Range or hash sharding               | Supports auto-sharding with replica sets    |
+| Cassandra      | Token-based (hash) + replication     | Distributed by design; no single point      |
+| PostgreSQL     | Citus (extension) - hash sharding    | Transforms PostgreSQL into distributed DB   |
+| MySQL Vitess   | Range-based with automatic rebalance | Built by YouTube for massive scale          |
+| DynamoDB       | Partition key (hash) + sort key      | Managed; AWS handles sharding transparently |
+| Google Spanner | Range-based + geographic replication | Globally distributed, strong consistency    |
 
 ---
 
