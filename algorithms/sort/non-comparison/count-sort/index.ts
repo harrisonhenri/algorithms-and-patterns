@@ -6,9 +6,12 @@ import { timer } from "../../../utils/timer";
  *
  * ## Overview
  *
- * Counting sort is one of the simplest building blocks in the world of non-comparison based sorts.
- * Unlike comparison-based algorithms (quicksort, mergesort, heapsort), counting sort leverages
- * the specific properties of the input data to achieve linear time complexity.
+ * Counting sort is a **non-comparative, integer-only** sorting algorithm that achieves linear time
+ * complexity by leveraging the specific properties of integer input data.
+ *
+ * ⚠️ **Key Requirement:** Works exclusively with **non-negative integers in a bounded range**.
+ * Unlike comparison-based algorithms (quicksort, mergesort, heapsort), counting sort maps each
+ * integer value directly to an array index, enabling O(N + K) performance instead of O(N log N).
  *
  * **Time Complexity:** O(N + K) where N is the input size and K is the range of values
  * **Space Complexity:** O(N + K) - requires output array and counts array

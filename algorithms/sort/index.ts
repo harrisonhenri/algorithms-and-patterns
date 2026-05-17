@@ -9,6 +9,12 @@
  * - By string length: ["we", "are", "hello", "world", "sorting", "learning"]
  * - By vowel count: ["we", "world", "are", "hello", "sorting", "learning"]
  *
+ * ### Related Guides
+ * - **Divide and Conquer:** See `algorithms/sort/divide-conquer/index.ts`
+ *   - Deep dive into Merge Sort and Quick Sort implementation
+ *   - Master Theorem for analyzing recursive sorting algorithms
+ *   - Why QuickSort is faster in-memory vs MergeSort's external sorting advantages
+ *
  * ### Ordering Relation (The Contract)
  * A valid ordering relation must satisfy:
  * 1. **Law of Trichotomy:** For any two elements a, b: exactly one is true: a < b, a = b, or a > b
