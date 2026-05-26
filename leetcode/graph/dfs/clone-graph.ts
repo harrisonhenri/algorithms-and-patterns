@@ -1,3 +1,6 @@
+import { Stack } from "../../../structures/stack/index";
+import { GraphNode } from "../../../structures/graph/node";
+
 /**
  * Clone Graph - Deep Copy of an Undirected Graph
  *
@@ -51,9 +54,6 @@
  * @date 14/01/2026 - 00:00:00
  */
 
-import { Stack } from "../../../structures/stack/index";
-import { GraphNode } from "../../../structures/graph/node";
-
 /**
  * **Approach 1: DFS with HashMap (Recursive)**
  *
@@ -67,7 +67,7 @@ import { GraphNode } from "../../../structures/graph/node";
  * 4. Return the cloned node
  */
 function cloneGraphDFS(
-  node: GraphNode<number> | null
+  node: GraphNode<number> | null,
 ): GraphNode<number> | null {
   if (!node) return null;
 
@@ -85,7 +85,7 @@ function cloneGraphDFS(
 
     // Clone all neighbors recursively
     for (const neighbor of originalNode.neighbors) {
-      clonedNode.neighbors.push(dfs(neighbor));
+      clonedNode.addNeighbor(dfs(neighbor));
     }
 
     return clonedNode;
@@ -108,7 +108,7 @@ function cloneGraphDFS(
  * 5. Connect cloned node to cloned neighbors
  */
 function cloneGraphIterativeDFS(
-  node: GraphNode<number> | null
+  node: GraphNode<number> | null,
 ): GraphNode<number> | null {
   if (!node) return null;
 
@@ -150,7 +150,7 @@ function cloneGraphIterativeDFS(
     const clonedCurrent = clonedNodes.get(currentNode.val)!;
 
     for (const neighbor of currentNode.neighbors) {
-      clonedCurrent.neighbors.push(clonedNodes.get(neighbor.val)!);
+      clonedCurrent.addNeighbor(clonedNodes.get(neighbor.val)!);
       stack.push(neighbor);
     }
   }
@@ -165,7 +165,7 @@ function cloneGraphIterativeDFS(
  * More intuitive for undirected graphs.
  */
 function cloneGraphBFS(
-  node: GraphNode<number> | null
+  node: GraphNode<number> | null,
 ): GraphNode<number> | null {
   if (!node) return null;
 
@@ -217,7 +217,7 @@ function buildGraphFromAdjList(adjList: number[][]): GraphNode<number> | null {
 // Helper function to verify clone is correct
 function isCloneValid(
   original: GraphNode<number> | null,
-  cloned: GraphNode<number> | null
+  cloned: GraphNode<number> | null,
 ): boolean {
   if (!original && !cloned) return true;
   if (!original || !cloned) return false;
@@ -227,7 +227,7 @@ function isCloneValid(
 
   function dfs(
     orig: GraphNode<number>,
-    clonedNode: GraphNode<number>
+    clonedNode: GraphNode<number>,
   ): boolean {
     if (visitedOriginal.has(orig.val)) {
       return visitedCloned.has(clonedNode.val);
@@ -279,7 +279,7 @@ if (require.main === module) {
   const clonedDFS2 = cloneGraphDFS(graphOriginal2);
   console.log(
     "Single node clone valid:",
-    isCloneValid(graphOriginal2, clonedDFS2)
+    isCloneValid(graphOriginal2, clonedDFS2),
   );
 
   // Test Case 3: Empty graph

@@ -71,6 +71,214 @@ Use **RabbitMQ** when you need **immediate, short-lived task handling** or **req
 | **Not Ideal For**          | Real-time RPC, fine-grained per-message ordering                                  | Persistent event sourcing or analytics pipelines                                    |
 | **Typical Latency**        | ~5–50 ms typical (batching, replication, and config dependent)                    | < 1 ms to a few ms per message                                                      |
 
+---
+
+# Exactly-Once Semantics in Event-Driven Systems
+
+## Delivery Guarantee Semantics
+
+Event systems provide different delivery guarantees:
+
+### At-Most-Once
+
+- Message delivered **zero or one time**
+- May be lost
+- Never duplicated
+
+Use when:
+
+- Data loss acceptable (analytics, metrics)
+- Duplicate worse than loss (ad impressions)
+
+Example: UDP, fire-and-forget RPC
+
+---
+
+### At-Least-Once
+
+- Message delivered **one or more times**
+- Never lost
+- May be duplicated
+
+Use when:
+
+- Duplicates tolerable (idempotent operations)
+- Data loss unacceptable
+
+Implementation:
+
+- Broker retries on no ACK
+- Consumer may see duplicates on retry
+
+Example: Kafka default, RabbitMQ manual ACK
+
+---
+
+### Exactly-Once
+
+- Message delivered **precisely once**
+- Never lost
+- Never duplicated
+
+Use when:
+
+- Financial transactions (no duplicates allowed)
+- Accounting (every transaction counted once)
+- Inventory (duplicate decrement breaks stock)
+
+Implementation:
+
+- Combination of mechanisms:
+  - Idempotent processing
+  - Deduplication tracking
+  - Offset management
+  - Atomic commits
+
+Example: Modern Kafka transactional mode, Flink checkpoints
+
+---
+
+## Kafka Exactly-Once Implementation
+
+Modern Kafka (0.11+) achieves exactly-once through:
+
+### 1. Idempotent Producer
+
+```
+Configuration: enable.idempotence = true
+
+Kafka tracks:
+  - Producer ID
+  - Message sequence numbers
+  - Per-partition per-producer
+  
+Guarantees:
+  - Each message sent exactly once
+  - No duplicates on network retry
+  - Producer-level deduplication
+```
+
+---
+
+### 2. Transactional Semantics
+
+```
+producer.initTransactions()
+
+try {
+    producer.beginTransaction()
+    producer.send(record1)
+    producer.send(record2)
+    producer.commitTransaction()  // atomic
+} catch {
+    producer.abortTransaction()   // all-or-nothing
+}
+
+All messages committed together
+All messages aborted together
+Partial success impossible
+```
+
+---
+
+### 3. Offset and Result Atomicity
+
+```
+Consumer with exactly-once:
+
+Key insight: 
+  Atomic store of (offset, processing_result)
+  
+1. Fetch message from partition 5, offset 100
+2. Process message (idempotently)
+3. Atomically store:
+   - Offset 100 processed
+   - Result of processing (e.g., in database)
+
+Failure scenario:
+  If crash between step 2 and 3:
+  - On recovery: consumer sees offset 100 not committed
+  - Replays message from 100
+  - Idempotent handler deduplicates
+  - Result: exactly-once end-to-end
+```
+
+---
+
+### 4. Isolation Level
+
+```
+Configuration: isolation.level = read_committed
+
+Consumer behavior:
+  - Only reads committed messages
+  - Ignores in-flight transactions
+  - Prevents reading aborted operations
+  - Ensures consistency
+```
+
+---
+
+## RabbitMQ Exactly-Once Patterns
+
+RabbitMQ doesn't natively provide exactly-once. Pattern:
+
+### Publisher Confirms + Idempotency
+
+```
+1. Publisher sends with unique correlation ID
+2. RabbitMQ confirms (publisher confirms feature)
+3. Consumer processes idempotently
+4. Consumer stores processed IDs
+
+Duplicate detection:
+  If same correlation ID seen:
+    ✓ Message already processed
+    → Return cached result
+    → Skip processing
+```
+
+---
+
+## Stream Processing and Exactly-Once
+
+### Apache Flink Model
+
+```
+Checkpointing:
+  1. Pause all inputs
+  2. Snapshot all state
+  3. Flush outputs atomically
+  4. Resume processing
+  
+Failure recovery:
+  ✓ Restore from checkpoint
+  ✓ Replay from offset
+  ✓ Deterministic reprocessing
+  ✓ Exactly-once state updates
+```
+
+References:
+
+- [1] Akidau et al.: "The Dataflow Model" (Apache Beam/Flink inspiration)
+- [92] Tzoumas et al.: "High-Throughput, Low-Latency, and Exactly-Once Stream Processing with Apache Flink"
+
+---
+
+## Exactly-Once Checklist for Event Systems
+
+Before claiming exactly-once, ensure:
+
+- [ ] **Unique message IDs** — correlation ID, request ID, or offset
+- [ ] **Idempotent processing** — same message reprocessed = same result
+- [ ] **Atomic writes** — output and offset stored together
+- [ ] **Deduplication** — processed IDs tracked and checked
+- [ ] **Failure recovery** — crash doesn't lose work or duplicate
+- [ ] **State persistence** — processed state survives restart
+- [ ] **End-to-end** — covers producer-broker-consumer pipeline
+
+---
+
 ![image.png](../assets/microservices/system-design-cheat-sheet-1.png)
 
 ![image.png](../assets/microservices/system-design-cheat-sheet-2.png)

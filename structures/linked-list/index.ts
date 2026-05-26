@@ -35,10 +35,10 @@
  * @date 13/01/2026 - 00:00:00
  *
  */
-class SinglyLinkedListNode<T> {
+class DoublyLinkedListNode<T> {
   val: T;
-  next: SinglyLinkedListNode<T> | null;
-  prev: SinglyLinkedListNode<T> | null;
+  next: DoublyLinkedListNode<T> | null;
+  prev: DoublyLinkedListNode<T> | null;
 
   constructor(val: T) {
     this.val = val;
@@ -47,11 +47,11 @@ class SinglyLinkedListNode<T> {
   }
 }
 
-export { SinglyLinkedListNode };
+export { DoublyLinkedListNode };
 
-export class SinglyLinkedList<T> {
-  private head: SinglyLinkedListNode<T> | null;
-  private tail: SinglyLinkedListNode<T> | null;
+export class DoublyLinkedList<T> {
+  private head: DoublyLinkedListNode<T> | null;
+  private tail: DoublyLinkedListNode<T> | null;
   private size: number;
 
   constructor() {
@@ -66,10 +66,10 @@ export class SinglyLinkedList<T> {
 
   insert(value: T): void {
     if (this.head === null) {
-      this.head = new SinglyLinkedListNode(value);
+      this.head = new DoublyLinkedListNode(value);
       this.tail = this.head;
     } else {
-      const newNode = new SinglyLinkedListNode(value);
+      const newNode = new DoublyLinkedListNode(value);
       newNode.next = this.head;
       this.head.prev = newNode;
       this.head = newNode;
@@ -158,7 +158,7 @@ export class SinglyLinkedList<T> {
    * Useful for deque operations and certain backtracking algorithms
    */
   append(value: T): void {
-    const newNode = new SinglyLinkedListNode(value);
+    const newNode = new DoublyLinkedListNode(value);
 
     if (this.head === null) {
       this.head = newNode;
@@ -214,7 +214,7 @@ export class SinglyLinkedList<T> {
 }
 
 if (require.main === module) {
-  const linkedList = new SinglyLinkedList();
+  const linkedList = new DoublyLinkedList();
   linkedList.insert(1);
   linkedList.insert(12);
   linkedList.insert(20);

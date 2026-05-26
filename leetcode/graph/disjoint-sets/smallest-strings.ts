@@ -77,6 +77,6 @@ if (require.main === module) {
     smallestStringWithSwaps("dcab", [
       [0, 3],
       [1, 2],
-    ])
+    ]),
   );
 }

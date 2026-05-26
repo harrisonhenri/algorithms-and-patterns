@@ -1,7 +1,408 @@
 ---
-tags: [system-design, transactions, concurrency, theory]
+tags: [system-design, transactions, concurrency, theory, exactly-once, safety, liveness]
 title: "Transactions and concurrency"
 ---
+
+# Safety vs Liveness in Transactional Systems
+
+Two foundational properties guide distributed transactional design:
+
+## Safety
+
+"**Nothing bad happens.**"
+
+In transactional context:
+
+- No duplicate execution of commands
+- No partial state corruption
+- No lost updates
+- Invariants always hold
+- ACID properties maintained
+
+Characteristics:
+
+- Violations are **catastrophic and permanent**
+- Cannot be recovered after violation occurs
+- Systems **prioritize safety above all else**
+
+Example:
+
+- Better to be unavailable than to corrupt account balance
+- Better to reject a transaction than to execute it twice
+
+---
+
+## Liveness
+
+"**Something good eventually happens.**"
+
+In transactional context:
+
+- Requests eventually complete
+- Transactions eventually commit or abort
+- Lock holders eventually release
+- Progress continues despite component failures
+
+Characteristics:
+
+- Temporary liveness violations acceptable
+- System can recover
+- Users tolerate brief unavailability
+
+Example:
+
+- Temporary database lock is okay
+- Distributed commit delayed is okay
+- As long as it eventually resolves
+
+---
+
+## Safety vs Liveness Tradeoff
+
+During failure scenarios, systems must choose:
+
+| Scenario | Safety Priority | Liveness Priority |
+|----------|---|---|
+| **Network partition** | Reject requests to ensure consistency | Serve stale data to stay available |
+| **Coordinator failure** | Block other nodes (2PC) | Retry or failover (risk inconsistency) |
+| **Lock contention** | Hold lock (ensure atomicity) | Timeout and abort (sacrifice consistency) |
+
+Most production systems choose:
+
+> **Safety over Liveness**
+> 
+> "It is better to be consistent and occasionally unavailable than to serve inconsistent data."
+
+---
+
+# Exactly-Once Semantics
+
+## The Core Problem
+
+In distributed systems with **retries, failures, and message loss**, it's nearly impossible to guarantee exactly-once execution.
+
+Why exactly-once is hard:
+
+1. **Messages may be lost** — no ACK received
+2. **Nodes may crash mid-processing** — partial execution
+3. **Retries send duplicates** — was first one delivered?
+4. **Acknowledgments can be lost** — producer doesn't know status
+5. **Failure detection is uncertain** — slow vs dead?
+6. **Process pauses** — operation appears to hang
+
+Example: Banking transfer
+
+```
+Account A: debit $100
+Account B: credit $100
+
+Failure scenarios:
+• Debit succeeds, credit fails, retry debits again → wrong balance
+• Both fail → money lost
+• Both succeed but ACK lost → appears to fail, operator retries
+• Node pauses between debit and credit → inconsistent state
+```
+
+---
+
+## Why Exactly-Once Matters
+
+Industries relying on exactly-once:
+
+- **Financial systems** — every transaction must execute precisely once
+- **Payments** — duplicate charge is catastrophic
+- **Inventory** — duplicate decrement breaks stock tracking
+- **Accounting** — every transaction must be recorded
+- **Data pipelines** — duplicates skew analytics
+
+Failure = data loss or corruption.
+
+---
+
+## Foundation: Idempotency
+
+The key to achieving exactly-once behavior.
+
+### Definition
+
+An operation is **idempotent** if executing it multiple times produces the same result as executing it once.
+
+### Examples
+
+**Idempotent operations:**
+
+- Setting `user.name = "Alice"` (multiple sets = same result)
+- Deleting a record (delete once or multiple times = gone)
+- Inserting with unique constraint (duplicate insert fails, already in DB)
+- HTTP PUT (replace resource with same value = same state)
+
+**Non-idempotent operations:**
+
+- Incrementing counter (5 → 6 → 7, different each time)
+- Appending to list (each append adds duplicate)
+- Charging credit card (each charge deducts money)
+- HTTP POST (each POST creates new resource)
+
+### Achieving Idempotency
+
+**Strategy 1: Unique Request ID**
+
+```
+Every request includes unique ID (UUID, nonce, etc.)
+Server stores processed IDs
+If duplicate request arrives:
+  ✓ Already in processed set?
+  → Return cached result immediately
+  → Don't re-execute operation
+```
+
+**Strategy 2: Compare-and-Swap (CAS)**
+
+```
+if (balance == $1000) {
+    balance = $900  // deduct $100
+}
+
+If operation retried:
+  • First retry: balance != $1000 (now $900), CAS fails, safe
+  • No duplicate deduction
+```
+
+**Strategy 3: Deterministic Processing**
+
+```
+Replay from event log deterministically
+Given same input events → always same output
+No side effects, purely computed
+```
+
+---
+
+## Mechanism: Deduplication
+
+### Request ID Deduplication
+
+Systems deduplicate by tracking processed request IDs:
+
+```
+Message arrives: RequestID=12345, Action=Transfer $100
+
+Deduplication table:
+  12345 → Transfer result (cached)
+
+If same message redelivered:
+  ✓ RequestID 12345 found
+  → Return cached result immediately
+  → Never re-execute transfer
+```
+
+**Trade-offs:**
+
+- ✓ Handles retries perfectly
+- ✓ Works across network partitions
+- ✓ No duplicate charges
+- ✗ Requires state (dedup table)
+- ✗ Dedup table must persist
+- ✗ Garbage collection of old entries needed
+
+---
+
+## Mechanism: Offset Management
+
+### Log-Based Exactly-Once (Kafka Model)
+
+In systems with append-only logs (Kafka, Pulsar):
+
+```
+Topic: payments
+Offset 100: Debit $100 from A
+Offset 101: Credit $100 to B
+Offset 102: Log transfer complete
+
+Consumer state:
+  Last processed offset: 102
+
+Failure and recovery:
+  ✓ Restart consumer → begins at offset 103
+  ✓ Never reprocesses 100-102
+  ✓ No duplicates
+```
+
+**Key property:**
+
+Offset + Topic uniquely identifies a message. Storing last offset ensures exactly-once.
+
+**Requirements:**
+
+1. **Atomic reads** — fetch message and offset together
+2. **Atomic writes** — update offset only after processing succeeds
+3. **Durable offset storage** — offset persists across restarts
+
+**Kafka Implementation:**
+
+```java
+consumer.poll()  // fetch message and offset
+processMessage() // application logic
+consumer.commitSync()  // atomic: offset stored in Kafka broker
+```
+
+If crash between process and commit:
+
+- On restart: offset not updated
+- Consumer replays message
+- Application sees it again
+- Idempotent handler deduplicates
+- Result: exactly-once
+
+---
+
+## Mechanism: Atomic Commits
+
+### Two-Phase Commit (2PC)
+
+System ensures atomicity across multiple databases:
+
+```
+Prepare phase:
+  Coordinator asks all: "Can you commit?"
+  DB_A: writes transaction, locks, replies "YES"
+  DB_B: writes transaction, locks, replies "YES"
+
+Commit phase:
+  Coordinator: "COMMIT to all"
+  DB_A: commit succeeds, releases locks
+  DB_B: commit succeeds, releases locks
+  Result: All-or-nothing atomicity
+```
+
+**Failure scenario:**
+
+```
+Coordinator crashes after Prepare, before Commit:
+  DB_A and DB_B: locked, waiting
+  On recovery: Coordinator reruns → sends COMMIT
+  Operations complete without duplication
+```
+
+**Limitations:**
+
+- ✓ Ensures atomicity
+- ✓ Prevents partial updates
+- ✗ Blocks other transactions (waiting for locks)
+- ✗ Slow (3-phase communication)
+- ✗ Unavailable if coordinator crashes (blocked indefinitely)
+
+---
+
+## Mechanism: Distributed Transactions
+
+### Saga Pattern
+
+Long-running transactions in microservices (2PC too slow):
+
+```
+Step 1: Debit from Account A
+Step 2: Credit to Account B
+Step 3: Log transfer
+
+If Step 2 fails:
+  Compensating transaction: Undo Step 1 (refund)
+  Result: Never charged customer
+```
+
+**Choreography vs Orchestration:**
+
+- **Choreography:** Services emit events, others react (complex to debug)
+- **Orchestration:** Coordinator directs steps (clearer but adds dependencies)
+
+---
+
+## Real-World Exactly-Once Implementations
+
+### Kafka (EOS Mode)
+
+Modern Kafka (0.11+) provides exactly-once:
+
+```
+Idempotent producer (prevents duplicates on network retry)
+Transactions (atomic offset commits)
+Exactly-once consumer (offset + message paired)
+
+Configuration:
+  enable.idempotence = true
+  isolation.level = read_committed
+  
+Result: Exactly-once across Kafka producer-broker-consumer chain
+```
+
+Reference: [96] Gustafson et al. "KIP-98 – Exactly Once Delivery and Transactional Messaging"
+
+---
+
+### Apache Flink
+
+Stream processor with exactly-once semantics:
+
+```
+Checkpointing: Periodically snapshot state + offset
+On failure: Restore from checkpoint
+Message processing: Deterministic + idempotent
+Result: Exactly-once state updates
+
+Key: Combines offset tracking + deterministic state + idempotence
+```
+
+Reference: [92] Tzoumas et al. "High-Throughput, Low-Latency, and Exactly-Once Stream Processing with Apache Flink"
+
+---
+
+### Kafka Transactions Example
+
+```java
+// Producer: exactly-once with transactional semantics
+producer.initTransactions();
+
+try {
+    producer.beginTransaction();
+    producer.send(new ProducerRecord("topic", key, value));
+    producer.commitTransaction();  // all-or-nothing
+} catch (Exception e) {
+    producer.abortTransaction();
+}
+
+// Consumer: read committed + offset tracking
+consumer.seek(lastCommittedOffset + 1);
+while (true) {
+    ConsumerRecords records = consumer.poll(...);
+    for (ConsumerRecord record : records) {
+        processRecord(record);  // must be idempotent
+    }
+    consumer.commitSync();  // atomic offset store
+}
+```
+
+---
+
+## Achieving Exactly-Once: Checklist
+
+To claim exactly-once semantics, ensure:
+
+- [ ] **Idempotent processing** — same message processed multiple times = same result
+- [ ] **Unique message identifiers** — request ID, correlation ID, or offset
+- [ ] **Deduplication state** — persistent log of processed IDs or offsets
+- [ ] **Atomic offset commits** — offset and processing results stored atomically
+- [ ] **Failure recovery** — crash recovery doesn't duplicate
+- [ ] **State persistence** — processed state survives restarts
+- [ ] **End-to-end semantics** — covers full pipeline (not just broker)
+
+**Note:** Many systems claim "effectively-once" (at-least-once + idempotent) rather than strict exactly-once. The distinction matters operationally.
+
+Reference: [90] Klang, Viktor. "I'm coining the phrase 'effectively-once' for message processing with at-least-once + idempotent operations"
+
+---
+
+---
+
 # Transactions and locking
 
 <aside>

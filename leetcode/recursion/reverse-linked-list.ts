@@ -51,15 +51,15 @@
  */
 
 import {
-  SinglyLinkedList,
-  SinglyLinkedListNode,
+  DoublyLinkedList,
+  DoublyLinkedListNode,
 } from "../../structures/linked-list";
 import {
   createListFromArray,
   listToArray,
 } from "../../algorithms/utils/linked-list";
 
-type ListNode<T> = SinglyLinkedListNode<T>;
+type ListNode<T> = DoublyLinkedListNode<T>;
 
 /**
  * **Approach 1: Recursive**
@@ -147,14 +147,14 @@ function reverseListIterative<T>(head: ListNode<T> | null): ListNode<T> | null {
 }
 
 /**
- * **Approach 3: Using Project's SinglyLinkedList**
+ * **Approach 3: Using Project's DoublyLinkedList**
  *
- * Uses the project's SinglyLinkedList structure to reverse by leveraging
+ * Uses the project's DoublyLinkedList structure to reverse by leveraging
  * the insert() method which prepends (adds at head), naturally reversing order.
  *
  * **Algorithm:**
  * 1. Extract all values from input list
- * 2. Create SinglyLinkedList and insert each value (prepend = reverse)
+ * 2. Create DoublyLinkedList and insert each value (prepend = reverse)
  * 3. Return the reversed list's head
  *
  * **Why this approach:**
@@ -163,15 +163,15 @@ function reverseListIterative<T>(head: ListNode<T> | null): ListNode<T> | null {
  * - Shows composition with project's optimized LinkedList
  *
  * **Time Complexity:** O(n) - Traverse input list + insert each value into project list
- * **Space Complexity:** O(n) - Creates n new SinglyLinkedListNode instances
+ * **Space Complexity:** O(n) - Creates n new DoublyLinkedListNode instances
  */
 function reverseListWithProject<T>(
-  head: ListNode<T> | null
+  head: ListNode<T> | null,
 ): ListNode<T> | null {
   if (!head) return null;
 
-  // Use SinglyLinkedList - insert() prepends, naturally reversing
-  const projectList = new SinglyLinkedList<T>();
+  // Use DoublyLinkedList - insert() prepends, naturally reversing
+  const projectList = new DoublyLinkedList<T>();
   let current: ListNode<T> | null = head;
   while (current) {
     projectList.insert(current.val);
@@ -228,6 +228,6 @@ if (require.main === module) {
   console.log("Recursive:           Time O(n), Space O(n) - call stack");
   console.log("Iterative:           Time O(n), Space O(1) - only pointers");
   console.log(
-    "Project Structure:   Time O(n), Space O(n) - SinglyLinkedList nodes"
+    "Project Structure:   Time O(n), Space O(n) - DoublyLinkedList nodes",
   );
 }

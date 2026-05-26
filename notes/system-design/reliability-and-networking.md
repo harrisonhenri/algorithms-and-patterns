@@ -1,6 +1,742 @@
 ---
-tags: [system-design, networking, theory]
-title: "Servers, proxies, gateways, load balancers"
+tags: [system-design, networking, theory, distributed-systems, faults]
+title: "Distributed systems fundamentals: Faults, networks, clocks, and reliability"
+---
+
+# Distributed Systems Fundamentals
+
+## The Core Problem
+
+Distributed systems are fundamentally different from single-machine programs because they must deal with:
+
+- **Partial failures** — some components fail while others continue
+- **Unreliable networks** — no delivery or timing guarantees
+- **Unreliable clocks** — time is approximate, not exact
+- **Uncertain knowledge about system state** — no node has complete global view
+
+Unlike local programs, distributed systems **cannot always distinguish** between:
+
+- a slow node
+- a crashed node
+- a lost packet
+- or a delayed response
+
+---
+
+## Single-Machine vs Distributed Systems
+
+Single computers usually behave deterministically:
+
+- Either working
+- Or completely crashed
+
+Distributed systems introduce:
+
+- **Partial failures** — independent component failures
+- **Nondeterministic behavior** — timing uncertainty
+- **Uncertainty** — incomplete information about system state
+
+A component may fail while the rest of the system continues working.
+
+---
+
+## Why Distributed Systems Are Hard
+
+Failures can happen anywhere:
+
+- Power outages
+- Switch failures
+- Network partitions
+- Hardware failures
+- Misconfigurations
+- Human error
+
+The key challenge:
+
+> **You often cannot know whether an operation succeeded or failed.**
+
+This fundamental uncertainty drives all distributed system design.
+
+---
+
+## Cloud Systems vs Supercomputers (HPC)
+
+### Supercomputers (HPC)
+
+Typically:
+
+- Specialized hardware
+- Tightly coupled systems
+- **Fail-stop behavior** — failures are immediate and clear
+- Checkpoint/restart recovery model
+- If one node fails → entire job often stops
+
+### Cloud Systems
+
+Typically:
+
+- Commodity hardware
+- Shared-nothing architecture
+- Unreliable networks
+- Geographically distributed
+- Online/always available requirement
+
+Must tolerate:
+
+- Node failures
+- Rolling upgrades
+- Partial outages
+- Arbitrary delays
+
+This leads to the need for:
+
+- Redundancy
+- Replication
+- Fault tolerance
+- Consensus mechanisms
+
+---
+
+## Building Reliable Systems from Unreliable Parts
+
+Important principle:
+
+> **Reliability can emerge from unreliable components.**
+
+Examples:
+
+- TCP built on unreliable IP (retransmission, ordering, flow control)
+- Error-correcting codes over noisy channels
+- Replication with quorums tolerates minority failures
+
+But:
+
+- Guarantees are never perfect
+- Only probabilistically improved
+- Increased complexity in failure scenarios
+
+---
+
+# Faults and Partial Failures
+
+## Main Concepts
+
+### Partial Failures
+
+In distributed systems, partial failures mean:
+
+- One component crashes
+- Others continue operating
+- System enters inconsistent or degraded state
+- Detecting which component failed is uncertain
+
+Example: A producer sends a message to a broker. Did it arrive?
+
+- Message lost in network?
+- Broker crashed before processing?
+- Broker processed but crashed before replying?
+- Network delay masking broker success?
+
+The producer cannot distinguish these cases without additional mechanisms.
+
+---
+
+## Key Challenge
+
+The defining characteristic of distributed systems:
+
+> **Quoting this fundamental principle is essential for all distributed design decisions.**
+
+You often cannot know:
+
+- If an operation succeeded
+- If a node is alive or dead
+- What order events occurred in
+- What the current state actually is
+
+---
+
+# Unreliable Networks
+
+## Shared-Nothing Architecture
+
+Machines communicate **only through networks**:
+
+- No shared memory
+- No shared disk
+- No shared state
+
+The network becomes:
+
+> **The critical dependency of the entire system.**
+
+Network failure = system failure.
+
+---
+
+## Asynchronous Packet Networks
+
+Internet and datacenter networks provide:
+
+- **No delivery guarantees** — packets may be lost
+- **No timing guarantees** — arrival time is unpredictable  
+- **No bounded delays** — wait time can be arbitrarily long
+
+Possible outcomes when sending a request:
+
+1. Request lost in network
+2. Request delayed in queue
+3. Request delivered, node processing slowly
+4. Request processed, response lost
+5. Response delayed
+6. Remote node crashed
+7. Remote node paused (GC, scheduler pause)
+
+The sender cannot distinguish between these cases.
+
+---
+
+## The Timeout Problem
+
+Because failures are ambiguous, systems rely on **timeouts**.
+
+But timeout selection is difficult:
+
+- **Short timeout** → false positives (treating slow nodes as dead)
+- **Long timeout** → slow recovery, poor responsiveness
+
+Incorrect timeouts trigger:
+
+- Cascading failures
+- Duplicate work
+- Retry amplification
+- Overload amplification
+
+Example:
+
+- If timeouts are too aggressive, a slow leader gets demoted
+- Multiple nodes think they're the leader
+- Split brain corruption occurs
+
+---
+
+## Network Congestion and Queueing
+
+Most delays come **not from physical distance** but from:
+
+- Switch queues
+- Overloaded CPUs
+- VM pauses
+- TCP retransmissions
+- Backpressure from downstream systems
+
+Key insight:
+
+> **Delays are usually caused by queueing, not physical distance.**
+
+Latency is highly variable, especially under load.
+
+---
+
+## TCP vs UDP
+
+### TCP
+
+Provides:
+
+- Retransmission (automatic retry on loss)
+- Ordering (packets arrive in order)
+- Flow control (prevents overwhelming receiver)
+- Connection-oriented handshake
+
+Trade-off:
+
+- Introduces variable latency
+- Retransmissions cause unpredictable delays
+- Queuing at both sender and receiver
+
+---
+
+### UDP
+
+Provides:
+
+- Low latency
+- No retransmission (fire-and-forget)
+- No ordering guarantees
+- No connection setup
+
+Trade-off:
+
+- Application must handle losses
+- Out-of-order delivery possible
+- Message duplication possible
+
+Useful when:
+
+- Delayed data is worthless (VoIP, live video)
+- One-way communication acceptable
+- Timeliness > reliability
+
+---
+
+## Synchronous vs Packet-Switched Networks
+
+### Synchronous Networks
+
+(e.g., telephone circuits, dedicated leased lines)
+
+Provide:
+
+- Reserved bandwidth
+- Bounded latency (maximum delay guaranteed)
+- Predictable delivery
+- Consistent performance
+
+Trade-off:
+
+- Expensive
+- Inefficient for bursty traffic
+- Less common in modern cloud systems
+
+---
+
+### Packet-Switched Networks
+
+(the internet, modern datacenters)
+
+Provide:
+
+- Better resource utilization
+- Dynamic sharing of links
+- Efficient handling of bursts
+- Lower cost
+
+Trade-off:
+
+- Unbounded delays
+- Unpredictable latency
+- Variable performance
+
+Key principle:
+
+> **Tradeoff: Predictability vs Resource Utilization**
+
+Most systems choose packet-switched and build fault tolerance around its unpredictability.
+
+---
+
+# Unreliable Clocks
+
+## Why Clocks Matter
+
+Distributed systems use time for:
+
+- **Timeouts** — detecting failures
+- **Metrics** — understanding performance
+- **Ordering** — determining which event happened first
+- **Expiration** — invalidating leases, tokens, caches
+- **Scheduling** — running jobs at specific times
+- **Logging** — debugging and auditing
+
+But **clocks are unreliable**.
+
+---
+
+## The Clock Synchronization Problem
+
+All distributed systems assume clocks are roughly synchronized using NTP (Network Time Protocol).
+
+But NTP is imperfect:
+
+- Clocks drift at different rates
+- Network delays slow synchronization
+- NTP servers can be wrong or lie
+- Leap seconds cause bugs
+- During network partitions, clocks diverge
+- System clocks can be manually adjusted
+
+Clock synchronization is:
+
+> **Approximate, never exact.**
+
+---
+
+## Two Types of Clocks
+
+### 1. Time-of-Day Clocks
+
+Examples:
+
+- `System.currentTimeMillis()` (Java)
+- `time.time()` (Python)
+- `Date.now()` (JavaScript)
+
+Properties:
+
+- Synchronized via NTP to calendar time
+- Represent absolute time
+- Affect absolute timestamps
+
+Problems:
+
+- **Can jump backward** — NTP adjustment, manual change, leap second
+- Affected by leap seconds causing bugs
+- **Unsuitable for measuring durations** — if you measure elapsed time and clock jumps back, elapsed time appears negative
+
+### 2. Monotonic Clocks
+
+Examples:
+
+- `System.nanoTime()` (Java)
+- `time.monotonic()` (Python)
+- `performance.now()` (JavaScript)
+
+Properties:
+
+- Only move forward
+- Suitable for measuring elapsed time
+- Immune to NTP adjustments
+- Not affected by leap seconds
+
+Limitations:
+
+- **Cannot compare across machines** — different clocks have different starting points
+- Unsuitable for absolute timestamps
+- Only meaningful within a single machine
+
+---
+
+## Practical Consequence: Fencing Tokens
+
+When using timestamps for distributed locks:
+
+**Dangerous pattern:**
+
+```
+Node A acquires lock with lease until time T
+Node A pauses
+Clock jumps forward
+Lease expires
+Node B acquires same lock
+Node A resumes and thinks it still owns lock
+→ Both nodes think they own lock → corruption
+```
+
+**Solution:**
+
+Use monotonically increasing **fencing tokens** instead of timestamps:
+
+```
+Lock acquisition 1 → token = 1
+Lock acquisition 2 → token = 2
+Lock acquisition 3 → token = 3
+
+Server only accepts operations from highest token
+Stale leaders cannot corrupt state
+```
+
+---
+
+# Process Pauses and Garbage Collection
+
+## Nodes May Pause Without Failing
+
+A node can become unresponsive without actually crashing:
+
+Causes:
+
+- **Garbage collection** (especially long GC pauses in JVM)
+- **Page faults** (memory swapped to disk)
+- **Scheduler delays** (OS context switching, high load)
+- **Virtualization** (VM pause on oversubscribed host)
+- **CPU starvation** (container/cgroup limits)
+
+From the network perspective:
+
+> **A paused node appears identical to a dead node.**
+
+---
+
+## False Failure Detection
+
+When a node pauses:
+
+- Heartbeats stop
+- Other nodes detect timeout
+- Node assumed dead
+- Other nodes take over its responsibilities
+
+When the node resumes:
+
+- It may still believe it owns resources
+- Corruption or duplicated actions occur
+- Two leaders both think they're in charge → split brain
+
+---
+
+## Example: GC Pauses in JVM Systems
+
+If a JVM pauses for a long garbage collection:
+
+1. Heartbeats stop
+2. Node declared dead
+3. Node loses leadership
+4. New leader elected by other nodes
+5. JVM resumes after pause
+6. Old leader resumes execution
+7. **Both leaders may execute conflicting operations**
+8. Distributed lock violated, data corrupted
+
+This is why:
+
+- Distributed locks need fencing tokens
+- Leases must be carefully managed
+- Long GC pauses are dangerous in consensus systems
+
+---
+
+# Knowledge, Truth, and Lies
+
+## The Fundamental Problem
+
+In distributed systems:
+
+> **No node has complete knowledge of global state.**
+
+Each node only observes:
+
+- **Delayed messages** — responses from other nodes take time
+- **Local clocks** — unreliable and cannot be compared across machines
+- **Local state** — what it has processed locally
+- **Partial information** — incomplete view of system
+
+This creates fundamental uncertainty about what is true.
+
+---
+
+## Failure Detection is Uncertain
+
+A node declared "dead" by the system may actually be:
+
+- **Alive but slow** — temporarily unresponsive, will recover
+- **Partitioned** — network broken, cannot communicate
+- **Actually crashed** — machine down, permanently offline
+- **Paused** — GC or scheduler delayed, will resume
+
+Distributed systems **cannot know for certain** which case it is.
+
+---
+
+## Quorum and Suspicion
+
+Instead of knowing truth, distributed systems work with:
+
+- **Suspicion** — nodes suspect other nodes failed
+- **Probabilities** — increased confidence over time
+- **Leases** — time-bounded trust
+- **Quorum assumptions** — "if majority says X died, probably true"
+
+Key principle:
+
+> **Nodes are not "known dead" — they are "suspected of failure".**
+
+---
+
+## Byzantine Faults vs Crash Faults
+
+### Crash Faults (Non-Byzantine)
+
+Assumptions:
+
+- Nodes fail **accidentally, not maliciously**
+- Failed nodes simply stop responding
+- No corruption or lying
+
+Examples:
+
+- Hardware failure
+- Software crash
+- Network partition
+- Resource exhaustion
+
+Handled by:
+
+- Replication
+- Consensus algorithms (Paxos, Raft)
+- Quorum systems
+- Simple timeout mechanisms
+
+---
+
+### Byzantine Faults
+
+Assumptions:
+
+- Nodes can fail **arbitrarily and maliciously**
+- Nodes may lie, corrupt data, send contradictory messages
+- Nodes may delay, reorder, or fabricate messages
+- Attackers coordinate attacks
+
+Characteristics:
+
+- Far more difficult to tolerate
+- Requires mechanisms like:
+  - Cryptographic signatures
+  - Byzantine consensus algorithms (PBFT)
+  - Majority > 2/3 (instead of > 1/2)
+  - Voting and verification
+
+When Byzantine matters:
+
+- **Financial systems** — dishonest nodes may steal
+- **Cryptocurrencies** — untrusted peer networks
+- **Military/aerospace systems** — adversarial environments
+- **Security-critical systems** — protection against sabotage
+
+When Byzantine doesn't matter:
+
+- **Typical datacenter** — nodes owned by same organization
+- **Cloud infrastructure** — hyperscaler controls hardware
+- **Internal systems** — no external adversaries
+- **Crash fault tolerance sufficient** — easier to implement
+
+**Practical distinction:**
+
+Most distributed systems (databases, message brokers, cloud infrastructure) assume crash faults and use simpler consensus algorithms. Byzantine resilience is reserved for cryptocurrency, satellite systems, and adversarial networks.
+
+---
+
+# System Models and Assumptions
+
+Different distributed systems are designed for different **failure models** and **timing assumptions**.
+
+---
+
+## Synchronous Model
+
+Assumes:
+
+- **Bounded message delays** — messages arrive within max time D
+- **Bounded processing time** — nodes process messages within time P
+- **Bounded clock drift** — clocks drift by at most r
+
+Implications:
+
+- If no response within D+P+margin → node is definitely dead
+- Can implement reliable failure detection
+- Can guarantee safety properties
+
+Reality:
+
+- **Very strong assumptions**
+- **Rarely true in practice**
+- Real systems have unbounded delays
+
+---
+
+## Partially Synchronous Model
+
+Most realistic model:
+
+- Usually behaves synchronously
+- Occasionally experiences:
+  - Long pauses
+  - Network partitions
+  - Extreme spikes in latency
+  - Unexpected delays
+
+Characteristics:
+
+- Most algorithms designed for this model
+- Assumes synchrony usually, but not always
+- Practical consensus algorithms (Raft, Paxos) work here
+
+---
+
+## Asynchronous Model
+
+Assumes:
+
+- **No timing guarantees at all**
+- Messages can be arbitrarily delayed
+- Nodes can be arbitrarily slow
+
+Implications:
+
+- Impossible to reliably distinguish slow from dead
+- Cannot implement reliable failure detection
+- Many algorithms impossible to solve
+
+Famous result:
+
+> **FLP Impossibility Theorem** — Consensus is impossible in asynchronous systems with even one crash fault
+
+---
+
+# Safety vs Liveness
+
+Two foundational properties:
+
+## Safety
+
+"**Nothing bad happens.**"
+
+Examples:
+
+- No duplicate transaction execution
+- No split brain (only one leader)
+- No data corruption
+- Invariants always hold
+
+Characteristics:
+
+- Violations are **catastrophic**
+- Once violated, cannot be recovered
+- Systems prioritize safety
+
+---
+
+## Liveness
+
+"**Something good eventually happens.**"
+
+Examples:
+
+- Requests eventually complete
+- Leader election eventually succeeds
+- A recovered node eventually rejoins
+- Progress continues despite failures
+
+Characteristics:
+
+- Temporary failures acceptable
+- Can recover
+- Systems sometimes sacrifice liveness for safety
+
+---
+
+## CAP and Partition Behavior
+
+During a network partition, systems must choose:
+
+- **Consistency** (safety) — maintain correctness
+- **Availability** (liveness) — continue serving requests
+
+Most systems choose:
+
+> **Partition over Availability (CP)**
+> 
+> Preserve safety, sacrifice liveness
+
+Rationale:
+
+- Data corruption worse than downtime
+- Better to be consistent and unavailable
+- Users prefer "service down" to "wrong data"
+
+---
+
 ---
 
 # App server vs Web server vs Proxy server vs Reverse proxy vs Gateway vs Load balancer

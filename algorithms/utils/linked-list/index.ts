@@ -1,12 +1,12 @@
 /**
  * Linked List Utilities
  *
- * Common helper functions for working with SinglyLinkedList and SinglyLinkedListNode.
+ * Common helper functions for working with DoublyLinkedList and DoublyLinkedListNode.
  *
  * @date 23/01/2026 - 00:00:00
  */
 
-import { SinglyLinkedListNode } from "../../../structures/linked-list";
+import { DoublyLinkedListNode } from "../../../structures/linked-list";
 
 /**
  * Create a linked list from an array of values.
@@ -18,15 +18,15 @@ import { SinglyLinkedListNode } from "../../../structures/linked-list";
  * @returns Head node of the created linked list, or null if array is empty
  */
 export function createListFromArray<T>(
-  arr: T[]
-): SinglyLinkedListNode<T> | null {
+  arr: T[],
+): DoublyLinkedListNode<T> | null {
   if (arr.length === 0) return null;
 
-  const head = new SinglyLinkedListNode(arr[0]);
+  const head = new DoublyLinkedListNode(arr[0]);
   let current = head;
 
   for (let i = 1; i < arr.length; i++) {
-    current.next = new SinglyLinkedListNode(arr[i]);
+    current.next = new DoublyLinkedListNode(arr[i]);
     current = current.next;
   }
 
@@ -42,7 +42,7 @@ export function createListFromArray<T>(
  * @param head - Head node of the linked list
  * @returns Array of values from the linked list
  */
-export function listToArray<T>(head: SinglyLinkedListNode<T> | null): T[] {
+export function listToArray<T>(head: DoublyLinkedListNode<T> | null): T[] {
   const arr: T[] = [];
   let current = head;
 
@@ -64,8 +64,8 @@ export function listToArray<T>(head: SinglyLinkedListNode<T> | null): T[] {
  * @param label - Optional label to prefix the output
  */
 export function printList<T>(
-  head: SinglyLinkedListNode<T> | null,
-  label: string = "List"
+  head: DoublyLinkedListNode<T> | null,
+  label: string = "List",
 ): void {
   const arr = listToArray(head);
   console.log(`${label}: [${arr.join(", ")}]`);

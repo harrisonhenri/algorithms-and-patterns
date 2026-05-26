@@ -1,3 +1,7 @@
+import { DisjointSet } from "../../../structures/disjoint-set";
+import { Stack } from "../../../structures/stack";
+import { buildAdjacencyList } from "../../../algorithms/utils/build-adjacency-list";
+
 /**
  * Determines whether there exists a valid path between two vertices
  * in a bi-directional (undirected) graph.
@@ -27,11 +31,6 @@
  * @date 14/01/2026 - 00:00:00
  */
 
-import { DisjointSet } from "../../../structures/disjoint-set";
-import { Stack } from "../../../structures/stack";
-import { Queue } from "../../../structures/queue";
-import { buildAdjacencyList } from "../../../algorithms/utils/build-adjacency-list";
-
 /**
  * **Approach 1: DFS with Stack (Iterative)**
  *
@@ -48,7 +47,7 @@ function validPathDFS(
   n: number,
   edges: number[][],
   source: number,
-  destination: number
+  destination: number,
 ): boolean {
   if (source === destination) return true;
 
@@ -82,7 +81,7 @@ function validPathDFS(
 }
 
 /**
- * **Approach 3: Recursive DFS (Cleaner & More Intuitive)**
+ * **Approach 2: Recursive DFS (Cleaner & More Intuitive)**
  *
  * **Time Complexity:** O(V + E) - Visit each vertex and edge once
  * **Space Complexity:** O(V) - Recursion stack + adjacency list + visited array
@@ -102,7 +101,7 @@ function validPathRecursiveDFS(
   n: number,
   edges: number[][],
   source: number,
-  destination: number
+  destination: number,
 ): boolean {
   // Build adjacency list
   const adjacencyList = buildAdjacencyList(n, edges);
@@ -121,7 +120,7 @@ function dfsHelper(
   adjacencyList: Map<number, number[]>,
   visited: boolean[],
   currNode: number,
-  destination: number
+  destination: number,
 ): boolean {
   // Base case: reached destination
   if (currNode === destination) {
@@ -146,61 +145,7 @@ function dfsHelper(
 }
 
 /**
- * **Approach 3: BFS (Breadth-First Search)**
- *
- * **Time Complexity:** O(V + E) - Visit each vertex and edge once
- * **Space Complexity:** O(V) - Queue + adjacency list + visited set
- *
- * **Algorithm:**
- * 1. Build adjacency list from edges
- * 2. Use queue to explore graph level-by-level from source
- * 3. Mark vertices as visited
- * 4. Return true if destination is visited
- *
- * **Advantages over DFS for this problem:**
- * - Finds shortest path in unweighted graphs
- * - Often faster in practice for connected vertices
- * - More natural for level-by-level exploration
- */
-function validPathBFS(
-  n: number,
-  edges: number[][],
-  source: number,
-  destination: number
-): boolean {
-  if (source === destination) return true;
-
-  // Build adjacency list
-  const adjacencyList = buildAdjacencyList(n, edges);
-
-  // BFS with queue
-  const queue = new Queue<number>();
-  queue.enqueue(source);
-
-  const visited: Set<number> = new Set([source]);
-
-  while (!queue.isEmpty()) {
-    const node = queue.dequeue();
-
-    if (!node) continue;
-
-    if (node === destination) {
-      return true;
-    }
-
-    for (const neighbor of adjacencyList.get(node) || []) {
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor);
-        queue.enqueue(neighbor);
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * **Approach 4: Disjoint Set (Union-Find)**
+ * **Approach 3: Disjoint Set (Union-Find)**
  *
  * **Time Complexity:** O(E × α(V)) where α is inverse Ackermann function
  * **Space Complexity:** O(V) - Parent and rank arrays
@@ -215,7 +160,7 @@ function validPathDisjointSet(
   n: number,
   edges: number[][],
   source: number,
-  destination: number
+  destination: number,
 ): boolean {
   if (source === destination) return true;
 
@@ -243,7 +188,7 @@ if (require.main === module) {
 
   console.log("=== DFS Approach ===");
   console.log(
-    `Path exists (DFS): ${validPathDFS(n, edges, source, destination)}`
+    `Path exists (DFS): ${validPathDFS(n, edges, source, destination)}`,
   );
 
   console.log("\n=== Recursive DFS Approach ===");
@@ -252,13 +197,8 @@ if (require.main === module) {
       n,
       edges,
       source,
-      destination
-    )}`
-  );
-
-  console.log("\n=== BFS Approach ===");
-  console.log(
-    `Path exists (BFS): ${validPathBFS(n, edges, source, destination)}`
+      destination,
+    )}`,
   );
 
   console.log("\n=== Disjoint Set Approach ===");
@@ -267,8 +207,8 @@ if (require.main === module) {
       n,
       edges,
       source,
-      destination
-    )}`
+      destination,
+    )}`,
   );
 
   // Additional test case
@@ -285,25 +225,22 @@ if (require.main === module) {
 
   console.log("\n=== Test Case 2 (No Path) ===");
   console.log(
-    `Path exists (DFS): ${validPathDFS(n2, edges2, source2, destination2)}`
+    `Path exists (DFS): ${validPathDFS(n2, edges2, source2, destination2)}`,
   );
   console.log(
     `Path exists (Recursive DFS): ${validPathRecursiveDFS(
       n2,
       edges2,
       source2,
-      destination2
-    )}`
-  );
-  console.log(
-    `Path exists (BFS): ${validPathBFS(n2, edges2, source2, destination2)}`
+      destination2,
+    )}`,
   );
   console.log(
     `Path exists (Disjoint Set): ${validPathDisjointSet(
       n2,
       edges2,
       source2,
-      destination2
-    )}`
+      destination2,
+    )}`,
   );
 }

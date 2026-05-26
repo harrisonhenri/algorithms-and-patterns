@@ -67,7 +67,7 @@
  * @date 22/01/2026 - 00:00:00
  */
 
-import { SinglyLinkedListNode } from "../../structures/linked-list";
+import { DoublyLinkedListNode } from "../../structures/linked-list";
 import {
   createListFromArray,
   listToArray,
@@ -85,8 +85,8 @@ import {
  * it to the swapped result of the remaining list.
  */
 function swapPairs<T>(
-  head: SinglyLinkedListNode<T> | null
-): SinglyLinkedListNode<T> | null {
+  head: DoublyLinkedListNode<T> | null,
+): DoublyLinkedListNode<T> | null {
   // Base case: if no node or only one node, no swap possible
   if (head === null || head.next === null) {
     return head;

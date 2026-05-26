@@ -1,3 +1,6 @@
+import { Queue } from "../../../structures/queue";
+import { buildAdjacencyList } from "../../../algorithms/utils/build-adjacency-list";
+
 /**
  * Minimum Number of Semesters to Complete All Courses (LeetCode 1136)
  *
@@ -31,9 +34,6 @@
  *
  * @date 20/01/2026
  */
-
-import { Queue } from "../../../structures/queue";
-import { buildAdjacencyList } from "../../../algorithms/utils/build-adjacency-list";
 
 /**
  * Finds minimum number of semesters using topological sort with levels

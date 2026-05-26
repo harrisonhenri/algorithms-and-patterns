@@ -169,7 +169,7 @@
  * @date 24/01/2026 - 00:00:00
  */
 
-import { SinglyLinkedListNode } from "../../structures/linked-list";
+import { DoublyLinkedListNode } from "../../structures/linked-list";
 import {
   createListFromArray,
   listToArray,
@@ -209,9 +209,9 @@ import { timer } from "../../algorithms/utils/timer";
  * - Not eligible for TCO in this form
  */
 function mergeTwoListsRecursive<T extends number | string>(
-  list1: SinglyLinkedListNode<T> | null,
-  list2: SinglyLinkedListNode<T> | null
-): SinglyLinkedListNode<T> | null {
+  list1: DoublyLinkedListNode<T> | null,
+  list2: DoublyLinkedListNode<T> | null,
+): DoublyLinkedListNode<T> | null {
   // Base case 1: list1 is empty, return list2
   if (!list1) {
     return list2;
@@ -281,11 +281,11 @@ function mergeTwoListsRecursive<T extends number | string>(
  * - For this problem size (50 nodes max), no practical benefit
  */
 function mergeTwoListsRecursiveTCO<T extends number | string>(
-  list1: SinglyLinkedListNode<T> | null,
-  list2: SinglyLinkedListNode<T> | null
-): SinglyLinkedListNode<T> | null {
-  let head: SinglyLinkedListNode<T> | null = null;
-  let tail: SinglyLinkedListNode<T> | null = null;
+  list1: DoublyLinkedListNode<T> | null,
+  list2: DoublyLinkedListNode<T> | null,
+): DoublyLinkedListNode<T> | null {
+  let head: DoublyLinkedListNode<T> | null = null;
+  let tail: DoublyLinkedListNode<T> | null = null;
 
   /**
    * Inner tail recursive function with accumulators
@@ -293,8 +293,8 @@ function mergeTwoListsRecursiveTCO<T extends number | string>(
    * tail: tracks the last node (where to attach next)
    */
   function mergeTail(
-    l1: SinglyLinkedListNode<T> | null,
-    l2: SinglyLinkedListNode<T> | null
+    l1: DoublyLinkedListNode<T> | null,
+    l2: DoublyLinkedListNode<T> | null,
   ): void {
     // Base case 1: list1 is empty, attach list2 and return
     if (!l1) {
@@ -357,7 +357,7 @@ if (require.main === module) {
   const list1_1 = createListFromArray([1, 2, 4]);
   const list2_1 = createListFromArray([1, 3, 4]);
   const { result: merged1, time: time1 } = timer(() =>
-    mergeTwoListsRecursive(list1_1, list2_1)
+    mergeTwoListsRecursive(list1_1, list2_1),
   );
   printList(merged1, "Result");
   console.log(`Time: ${time1}ms`);
@@ -370,7 +370,7 @@ if (require.main === module) {
   const list1_2 = createListFromArray<number>([]);
   const list2_2 = createListFromArray([0]);
   const { result: merged2, time: time2 } = timer(() =>
-    mergeTwoListsRecursive(list1_2, list2_2)
+    mergeTwoListsRecursive(list1_2, list2_2),
   );
   printList(merged2, "Result");
   console.log(`Time: ${time2}ms`);
@@ -383,7 +383,7 @@ if (require.main === module) {
   const list1_3 = createListFromArray<number>([]);
   const list2_3 = createListFromArray<number>([]);
   const { result: merged3, time: time3 } = timer(() =>
-    mergeTwoListsRecursive(list1_3, list2_3)
+    mergeTwoListsRecursive(list1_3, list2_3),
   );
   printList(merged3, "Result");
   console.log(`Time: ${time3}ms`);
@@ -396,7 +396,7 @@ if (require.main === module) {
   const list1_4 = createListFromArray([1]);
   const list2_4 = createListFromArray([2]);
   const { result: merged4, time: time4 } = timer(() =>
-    mergeTwoListsRecursive(list1_4, list2_4)
+    mergeTwoListsRecursive(list1_4, list2_4),
   );
   printList(merged4, "Result");
   console.log(`Time: ${time4}ms`);
@@ -409,7 +409,7 @@ if (require.main === module) {
   const list1_5 = createListFromArray([1, 2, 2]);
   const list2_5 = createListFromArray([1, 2, 2]);
   const { result: merged5, time: time5 } = timer(() =>
-    mergeTwoListsRecursive(list1_5, list2_5)
+    mergeTwoListsRecursive(list1_5, list2_5),
   );
   printList(merged5, "Result");
   console.log(`Time: ${time5}ms`);
@@ -426,7 +426,7 @@ if (require.main === module) {
   const list1_1_tco = createListFromArray([1, 2, 4]);
   const list2_1_tco = createListFromArray([1, 3, 4]);
   const { result: merged1_tco, time: time1_tco } = timer(() =>
-    mergeTwoListsRecursiveTCO(list1_1_tco, list2_1_tco)
+    mergeTwoListsRecursiveTCO(list1_1_tco, list2_1_tco),
   );
   printList(merged1_tco, "Result");
   console.log(`Time: ${time1_tco}ms`);
@@ -439,7 +439,7 @@ if (require.main === module) {
   const list1_2_tco = createListFromArray<number>([]);
   const list2_2_tco = createListFromArray([0]);
   const { result: merged2_tco, time: time2_tco } = timer(() =>
-    mergeTwoListsRecursiveTCO(list1_2_tco, list2_2_tco)
+    mergeTwoListsRecursiveTCO(list1_2_tco, list2_2_tco),
   );
   printList(merged2_tco, "Result");
   console.log(`Time: ${time2_tco}ms`);
@@ -452,7 +452,7 @@ if (require.main === module) {
   const list1_3_tco = createListFromArray<number>([]);
   const list2_3_tco = createListFromArray<number>([]);
   const { result: merged3_tco, time: time3_tco } = timer(() =>
-    mergeTwoListsRecursiveTCO(list1_3_tco, list2_3_tco)
+    mergeTwoListsRecursiveTCO(list1_3_tco, list2_3_tco),
   );
   printList(merged3_tco, "Result");
   console.log(`Time: ${time3_tco}ms`);
@@ -465,7 +465,7 @@ if (require.main === module) {
   const list1_4_tco = createListFromArray([1]);
   const list2_4_tco = createListFromArray([2]);
   const { result: merged4_tco, time: time4_tco } = timer(() =>
-    mergeTwoListsRecursiveTCO(list1_4_tco, list2_4_tco)
+    mergeTwoListsRecursiveTCO(list1_4_tco, list2_4_tco),
   );
   printList(merged4_tco, "Result");
   console.log(`Time: ${time4_tco}ms`);
@@ -478,7 +478,7 @@ if (require.main === module) {
   const list1_5_tco = createListFromArray([1, 2, 2]);
   const list2_5_tco = createListFromArray([1, 2, 2]);
   const { result: merged5_tco, time: time5_tco } = timer(() =>
-    mergeTwoListsRecursiveTCO(list1_5_tco, list2_5_tco)
+    mergeTwoListsRecursiveTCO(list1_5_tco, list2_5_tco),
   );
   printList(merged5_tco, "Result");
   console.log(`Time: ${time5_tco}ms`);

@@ -1,4 +1,4 @@
-import { SinglyLinkedListNode } from "../../structures/linked-list";
+import { DoublyLinkedListNode } from "../../structures/linked-list";
 import {
   createListFromArray,
   listToArray,
@@ -105,10 +105,10 @@ import {
  * Key insight: Dummy node eliminates edge cases when inserting before head.
  */
 function insertionSortList(
-  head: SinglyLinkedListNode<number> | null,
-): SinglyLinkedListNode<number> | null {
+  head: DoublyLinkedListNode<number> | null,
+): DoublyLinkedListNode<number> | null {
   // Create dummy node to simplify insertion at head
-  const dummy = new SinglyLinkedListNode(Number.MIN_SAFE_INTEGER);
+  const dummy = new DoublyLinkedListNode(Number.MIN_SAFE_INTEGER);
   let current = head;
 
   while (current !== null) {

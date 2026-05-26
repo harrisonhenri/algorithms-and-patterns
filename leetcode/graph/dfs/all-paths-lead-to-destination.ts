@@ -47,11 +47,11 @@ import { buildAdjacencyList } from "../../../algorithms/utils/build-adjacency-li
  * - 1: currently visiting (in recursion stack)
  * - 2: completely visited
  */
-function allPathsLeadToDestinationDFS(
+function allPathsLeadToDestination(
   n: number,
   edges: number[][],
   source: number,
-  destination: number
+  destination: number,
 ): boolean {
   // Build adjacency list (directed graph)
   const graph = buildAdjacencyList(n, edges, true);
@@ -104,15 +104,6 @@ function allPathsLeadToDestinationDFS(
   }
 
   return dfs(source);
-}
-
-export function allPathsLeadToDestination(
-  n: number,
-  edges: number[][],
-  source: number,
-  destination: number
-): boolean {
-  return allPathsLeadToDestinationDFS(n, edges, source, destination);
 }
 
 // Test cases

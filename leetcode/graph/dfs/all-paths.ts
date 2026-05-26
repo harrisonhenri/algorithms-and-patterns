@@ -1,3 +1,5 @@
+import { DoublyLinkedList } from "../../../structures/linked-list";
+
 /**
  * Finds all possible paths from node 0 to node n - 1 in a Directed Acyclic Graph (DAG).
  *
@@ -29,8 +31,6 @@
  * @date 14/01/2026 - 00:00:00
  */
 
-import { SinglyLinkedList } from "../../../structures/linked-list";
-
 /**
  * **Approach 1: Recursive DFS with Backtracking**
  *
@@ -55,7 +55,7 @@ function dfs(
   target: number,
   graph: number[][],
   currentPath: number[],
-  allPaths: number[][]
+  allPaths: number[][],
 ): void {
   // Base case: reached destination
   if (currentNode === target) {
@@ -109,9 +109,9 @@ function allPathsSourceTargetIterative(graph: number[][]): number[][] {
 }
 
 /**
- * **Approach 3: Recursive DFS with Project's SinglyLinkedList**
+ * **Approach 3: Recursive DFS with Project's DoublyLinkedList**
  *
- * Uses the project's SinglyLinkedList directly to maintain the current path during traversal.
+ * Uses the project's DoublyLinkedList directly to maintain the current path during traversal.
  * This demonstrates proper integration of project data structures into algorithm solutions.
  *
  * **Implementation notes:**
@@ -126,13 +126,13 @@ function allPathsSourceTargetIterative(graph: number[][]): number[][] {
  * - Best demonstrates data structure integration in projects
  * - For small paths (typical DAG), performance is acceptable
  */
-function allPathsSourceTargetWithSinglyLinkedList(
-  graph: number[][]
+function allPathsSourceTargetWithDoublyLinkedList(
+  graph: number[][],
 ): number[][] {
   const target = graph.length - 1;
   const allPaths: number[][] = [];
 
-  function dfs(currentNode: number, path: SinglyLinkedList<number>): void {
+  function dfs(currentNode: number, path: DoublyLinkedList<number>): void {
     // Base case: reached destination
     if (currentNode === target) {
       allPaths.push(path.toArray());
@@ -153,7 +153,7 @@ function allPathsSourceTargetWithSinglyLinkedList(
   }
 
   // Start DFS with node 0 in the path
-  const initialPath = new SinglyLinkedList<number>();
+  const initialPath = new DoublyLinkedList<number>();
   initialPath.append(0);
   dfs(0, initialPath);
 
@@ -174,10 +174,10 @@ if (require.main === module) {
   console.log("All paths from 0 to 3:", JSON.stringify(resultIterative));
   // Output: [[0,2,3],[0,1,3]] (order may differ due to stack order)
 
-  console.log("\n=== Recursive DFS with SinglyLinkedList ===");
-  const resultSinglyLinkedList =
-    allPathsSourceTargetWithSinglyLinkedList(testGraph1);
-  console.log("All paths from 0 to 3:", JSON.stringify(resultSinglyLinkedList));
+  console.log("\n=== Recursive DFS with DoublyLinkedList ===");
+  const resultDoublyLinkedList =
+    allPathsSourceTargetWithDoublyLinkedList(testGraph1);
+  console.log("All paths from 0 to 3:", JSON.stringify(resultDoublyLinkedList));
   // Output: [[0,1,3],[0,2,3]]
 
   // Additional test case: More complex graph
@@ -190,13 +190,13 @@ if (require.main === module) {
   const result2Iterative = allPathsSourceTargetIterative(testGraph2);
   console.log(
     "All paths from 0 to 4 (Iterative):",
-    JSON.stringify(result2Iterative)
+    JSON.stringify(result2Iterative),
   );
 
-  const result2SinglyLinkedList =
-    allPathsSourceTargetWithSinglyLinkedList(testGraph2);
+  const result2DoublyLinkedList =
+    allPathsSourceTargetWithDoublyLinkedList(testGraph2);
   console.log(
-    "All paths from 0 to 4 (SinglyLinkedList):",
-    JSON.stringify(result2SinglyLinkedList)
+    "All paths from 0 to 4 (DoublyLinkedList):",
+    JSON.stringify(result2DoublyLinkedList),
   );
 }

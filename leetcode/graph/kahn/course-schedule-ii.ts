@@ -1,3 +1,5 @@
+import { kahnTopologicalSort } from "../../../algorithms/graph/kahn";
+
 /**
  * Course Schedule II (LeetCode 210)
  *
@@ -27,8 +29,6 @@
  *
  * @date 19/01/2026
  */
-
-import { kahnTopologicalSort } from "../../../algorithms/graph/kahn";
 
 /**
  * Finds valid course order respecting prerequisites.
@@ -61,7 +61,7 @@ import { kahnTopologicalSort } from "../../../algorithms/graph/kahn";
  */
 export function courseSchedule(
   numCourses: number,
-  prerequisites: number[][]
+  prerequisites: number[][],
 ): number[] {
   const edges = prerequisites.map(([course, prerequisite]) => ({
     source: prerequisite,
@@ -95,7 +95,7 @@ if (require.main === module) {
   console.log("numCourses = 4, prerequisites = [[1,0],[2,0],[3,1],[3,2]]");
   console.log("Course order:", result2); // [0, 1, 2, 3] or [0, 2, 1, 3]
   console.log(
-    "Explanation: 0 has no prereqs, 1 and 2 depend on 0, 3 depends on 1 and 2\n"
+    "Explanation: 0 has no prereqs, 1 and 2 depend on 0, 3 depends on 1 and 2\n",
   );
 
   // Example 3: Circular dependency
@@ -107,7 +107,7 @@ if (require.main === module) {
   console.log("numCourses = 2, prerequisites = [[1,0],[0,1]]");
   console.log("Course order:", result3); // []
   console.log(
-    "Explanation: Course 1 requires 0, and 0 requires 1 - circular!\n"
+    "Explanation: Course 1 requires 0, and 0 requires 1 - circular!\n",
   );
 
   // Example 4: No prerequisites

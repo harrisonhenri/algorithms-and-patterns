@@ -1,7 +1,414 @@
 ---
-tags: [system-design, distributed-systems, consensus, theory]
-title: "Consensus and replication"
+tags: [system-design, distributed-systems, consensus, theory, system-models, FLP, linearizability]
+title: "Consistency, consensus, and replication"
 ---
+
+# System Models and Theoretical Foundations
+
+Different distributed systems operate under different assumptions about timing and failures. These assumptions determine what's possible to guarantee.
+
+---
+
+## Synchronous Model
+
+### Assumptions
+
+- **Bounded message delays** — all messages arrive within max time $D$
+- **Bounded processing time** — all nodes process within time $P$
+- **Bounded clock drift** — clocks diverge by at most rate $r$
+
+### Implications
+
+- If no response within $D + P$ → node is definitely dead
+- Can implement reliable failure detection with certainty
+- Can guarantee safety properties hold always
+
+### Reality
+
+- **Rarely true in practice**
+- Real networks have unbounded delays
+- Real systems experience arbitrarily long pauses
+
+---
+
+## Partially Synchronous Model
+
+### Assumptions
+
+- System is **usually synchronous**
+- But occasionally experiences:
+  - Arbitrarily long delays
+  - Network partitions
+  - Scheduling pauses
+  - Extreme latency spikes
+
+### Characteristics
+
+- Most realistic for real systems
+- Most practical consensus algorithms designed for this
+- Assumes synchrony *usually*, not always
+
+### Examples
+
+- Datacenters (normally predictable, but occasional pauses)
+- Cloud systems (scaling events cause delays)
+- Geographically distributed systems (routing changes)
+
+---
+
+## Asynchronous Model
+
+### Assumptions
+
+- **No timing guarantees whatsoever**
+- Messages can be arbitrarily delayed
+- Nodes can be arbitrarily slow
+- No clock synchronization assumed
+
+### Implications
+
+- Cannot reliably distinguish slow node from crashed node
+- No reliable failure detection possible
+- Many consensus problems **impossible to solve**
+
+### Historical Significance
+
+Foundation for **FLP Impossibility Theorem** (below).
+
+---
+
+## FLP Impossibility Result
+
+One of the most important theorems in distributed systems.
+
+### Theorem Statement
+
+**Fischer-Lynch-Paterson (FLP) Impossibility Theorem:**
+
+> In a purely asynchronous system, **no deterministic consensus algorithm can guarantee both safety and liveness** if even **one node may crash**.
+
+### What It Means
+
+**In asynchronous setting:**
+
+- Cannot have an algorithm that:
+  - Always produces correct consensus (safety)
+  - AND always terminates (liveness)
+  - AND tolerates even one crash fault
+
+Must sacrifice one of:
+
+1. **Safety** — wrong decisions possible
+2. **Liveness** — may never terminate
+3. **Fault tolerance** — cannot tolerate failures
+
+### Why It Matters
+
+**FLP proves:**
+
+- Synchrony assumptions necessary
+- Timeout-based detection essential
+- Paxos/Raft rely on partial synchrony
+- No "perfect" distributed consensus
+
+### Practical Workarounds
+
+Real systems assume **partial synchrony** and use:
+
+- **Timeouts** — heuristically detect failures
+- **Leader election** — simplify with strong leader
+- **Majority quorums** — ensure progress
+- **Epochs/terms** — prevent split-brain
+
+### Connection to Reality
+
+- FLP is a **theoretical lower bound**
+- Practical systems work around it
+- Explains why consensus is hard
+- Justifies complexity of Paxos/Raft
+
+---
+
+# Consistency and Consensus
+
+## Core Concept
+
+Distributed systems must solve the **agreement problem**: How do replicas agree on state?
+
+Different approaches provide different consistency guarantees.
+
+---
+
+## Consistency Guarantees
+
+### Eventual Consistency
+
+Many distributed databases replicate data **asynchronously**.
+
+Behavior:
+
+- Replicas temporarily diverge
+- Eventually converge to same state
+- Temporary inconsistency visible to clients
+
+Advantages:
+
+- High availability
+- Low latency
+- Partition tolerant
+- Scales easily
+
+Problems:
+
+- Stale reads visible
+- Conflicting updates possible
+- Confusing application behavior
+- Not suitable for critical data
+
+Examples:
+
+- Amazon Dynamo
+- Cassandra
+- Riak
+- Most NoSQL databases
+
+---
+
+### Linearizability (Strong Consistency)
+
+A system is **linearizable** if:
+
+> Every operation appears to take effect **atomically at a single instant in time**, even in a distributed system.
+
+#### Properties
+
+If:
+
+1. Client A writes `x = 5`
+2. Client B reads afterward
+
+Then B **must see** `x = 5`, never older data.
+
+#### Why It Matters
+
+Required for:
+
+- **Locks** — must be exclusive
+- **Leader election** — at most one leader
+- **Uniqueness guarantees** — no duplicate IDs
+- **Financial systems** — consistency critical
+- **Distributed coordination** — shared truth
+
+Without linearizability:
+
+- Two leaders simultaneously possible
+- Duplicate work occurs
+- Invariants break
+
+#### Cost of Linearizability
+
+Strong consistency is **expensive**:
+
+- **Latency** — requires coordination, quorum agreement, replication acknowledgments
+- **Availability** — if quorum unavailable, must reject writes
+- **Multi-region** — WAN latency adds coordination delay
+
+---
+
+### Linearizability vs Serializability
+
+Critical distinction often confused.
+
+#### Serializability
+
+Concerned with:
+
+- Transactions
+- Multiple objects
+- Database isolation levels
+
+Property:
+
+> **Equivalent to sequential execution** of transactions
+
+Focus: Transaction isolation, not real-time ordering.
+
+---
+
+#### Linearizability Distinction
+
+Concerned with:
+
+- Real-time ordering
+- Visibility of operations
+- Recency of reads
+
+Property:
+
+> **Real-time ordering** of individual operations visible
+
+Focus: One object at a time, real-world timing.
+
+---
+
+#### Comparison
+
+System can be:
+
+- ✓ Serializable but not linearizable (snapshot isolation)
+- ✓ Linearizable but not serializable (violations of transaction isolation possible)
+- ✓ Both (serializable snapshot isolation)
+- ✗ Neither (neither isolation nor ordering)
+
+---
+
+## CAP Theorem
+
+### Core Statement
+
+In a distributed system, when a **network partition** occurs, choose between:
+
+- **Consistency** — all nodes see same data (linearizable)
+- **Availability** — system continues serving requests
+
+You **cannot fully guarantee both simultaneously** during partitions.
+
+### Critical Misunderstanding
+
+CAP is **NOT about**:
+
+- Normal operation performance
+- Replication in general
+- System performance trade-offs
+
+CAP is **specifically about**:
+
+> **Behavior during network partitions**
+
+In non-partitioned system, consistency and availability both possible.
+
+---
+
+### CP Systems (Consistency over Availability)
+
+Choose consistency, sacrifice availability during partitions.
+
+Behavior during partition:
+
+- May reject requests
+- System becomes unavailable
+- Data remains consistent
+- Example: "majority partition continues, minority blocked"
+
+Examples:
+
+- ZooKeeper (Zab algorithm)
+- etcd (Raft algorithm)
+- Consul (Raft algorithm)
+- Traditional databases (strong consistency)
+
+Trade-off:
+
+- ✓ Correct data always
+- ✗ May be unavailable
+- ✓ Suitable for metadata, locks, critical data
+
+---
+
+### AP Systems (Availability over Consistency)
+
+Choose availability, sacrifice consistency during partitions.
+
+Behavior during partition:
+
+- Every partition continues serving
+- Nodes may return stale/conflicting data
+- Replicas diverge
+- Example: "each partition has different view"
+
+Examples:
+
+- Dynamo (Amazon)
+- Cassandra (Apache)
+- Riak
+- Most NoSQL databases
+- DNS (eventually consistent)
+
+Trade-off:
+
+- ✓ Always available
+- ✗ Temporarily inconsistent
+- ✗ Requires conflict resolution
+- ✓ Suitable for high-availability services
+
+---
+
+## Achieving Linearizability
+
+Usually implemented through:
+
+1. **Single-leader replication**
+   - Leader serializes all writes
+   - Followers replicate
+   - Reads from leader → usually linearizable
+   - Reads from followers → stale
+
+2. **Consensus algorithms**
+   - Paxos, Raft, Zab
+   - Prevent split-brain via quorum
+   - Linearizable by construction
+
+3. **Quorum coordination**
+   - Read and write quorums
+   - Overlap requirement
+   - Linearizable if quorum sizes chosen right
+
+---
+
+## Ordering Guarantees
+
+Distributed systems need ordering for:
+
+- Causality (A happens before B)
+- Transactions (sequence of operations)
+- Event processing (replay deterministically)
+- Replication (all nodes see same order)
+
+---
+
+## Total Order Broadcast
+
+Also called **atomic broadcast**.
+
+### Guarantee
+
+- **All nodes receive all messages**
+- **In exactly the same order**
+- **Guaranteed delivery**
+
+### Importance
+
+Deeply connected to consensus.
+
+Example:
+
+```
+Node A sends: Update(x=1), Update(x=2), Delete(x)
+Node B receives: Update(x=1), Update(x=2), Delete(x)  ← same order
+Node C receives: Update(x=1), Update(x=2), Delete(x)  ← same order
+```
+
+Without ordering, replicas diverge.
+
+### Implementation
+
+Total order broadcast can be implemented using consensus:
+
+- Consensus on each message's position
+- Equivalent to solving consensus repeatedly
+
+---
+
 # Linearizability in Different Replication Models
 
 ## Single-leader replication (potentially linearizable)

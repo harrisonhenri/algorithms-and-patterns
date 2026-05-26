@@ -1,3 +1,5 @@
+import { DisjointSet } from "../../../structures/disjoint-set";
+
 /**
  * Problem: Number of Provinces (Connected Components)
  * @date 13/01/2026 - 00:00:00
@@ -16,15 +18,11 @@
  * - isConnected[i][j] === 0 means there is no direct connection
  *
  * Return the total number of provinces (connected components) in the graph.
+ *
+ * @time O(n² × α(n)) - Two nested loops iterate through the adjacency matrix,
+ *       with nearly O(1) union operations using path compression
+ * @space O(n) - DisjointSet data structure stores n elements
  */
-
-import { DisjointSet } from "../../../structures/disjoint-set";
-
-const isConnected = [
-  [1, 1, 0],
-  [1, 1, 0],
-  [0, 0, 1],
-];
 
 function findCircleNum(isConnected: number[][]): number {
   const n = isConnected.length;
@@ -41,4 +39,11 @@ function findCircleNum(isConnected: number[][]): number {
   return ds.getComponents().size;
 }
 
-console.log(findCircleNum(isConnected));
+if (require.main === module) {
+  const isConnected = [
+    [1, 1, 0],
+    [1, 1, 0],
+    [0, 0, 1],
+  ];
+  console.log(findCircleNum(isConnected));
+}
