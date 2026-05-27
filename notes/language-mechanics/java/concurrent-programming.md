@@ -91,7 +91,31 @@ CAS(variable, expected, newValue):
     return false  (caller retries)
 ```
 
-**ABA problem:** a value changes A → B → A between a read and a CAS, making the CAS succeed incorrectly. `AtomicStampedReference` adds a version stamp to detect it.
+**ABA problem:** a value changes A → B → A between a read and a CAS, making the CAS succeed incorrectly.
+
+**Concrete example:** removing a node from a linked list:
+
+```
+Initial:  list = [A → B → C]
+
+Thread 1: reads node = A           # stores reference to A
+Thread 1: reads node.next = B      # plans to set it to C
+Thread 2: removes A from list      # list = [B → C]
+Thread 2: adds A back              # list = [A → B → C]
+Thread 1: CAS(A.next, B, C)        # succeeds because A.next is still B!
+         # but A was removed & re-added, causing logical errors
+```
+
+The issue: CAS only compares the reference value (A), not the semantic state. `AtomicStampedReference<V>` adds a **stamp** (version counter) that increments on each update:
+
+```java
+AtomicStampedReference<Node> ref = new AtomicStampedReference<>(nodeA, 0);
+int stamp = ref.getStamp();              // 0
+ref.compareAndSet(nodeA, nodeB, 0, 1); // succeeds, stamp increments to 1
+
+// Even if nodeA is re-added later with a different stamp, the old stamp won't match
+ref.compareAndSet(nodeA, nodeC, 0, 1); // fails because stamp is now > 1
+```
 
 #### Adders (`LongAdder`)
 
@@ -305,7 +329,34 @@ latch.await(); // blocks until count reaches 0
 | **Livelock**       | Threads keep changing state in response to each other but make no progress                  | Randomised back-off                              |
 | **Starvation**     | A thread never gets CPU time                                                                | Fair locks; proper thread priorities             |
 | **False sharing**  | Two variables share a cache line; writes by different threads invalidate each other's cache | Padding (`@Contended`)                           |
-| **ABA problem**    | CAS succeeds on a value that changed A→B→A                                                  | `AtomicStampedReference`                         |
+| **ABA problem**    | CAS succeeds on a value that changed A→B→A                                                  | `AtomicStampedReference` (stamp detects reuse)   |
+
+---
+
+## Decision Framework: Choosing a Concurrency Primitive
+
+This table helps you select the right tool based on your scenario. Key criteria:
+- **Scope:** what you need to synchronise (single variable, multiple, coordination)
+- **Contention:** expected thread conflict level (low, medium, high)
+- **Throughput:** blocking vs. lock-free performance
+
+| Primitive | Problem | Scope | Contention | Blocking | Best for |
+| --- | --- | --- | --- | --- | --- |
+| **`volatile`** | Visibility only | Single variable | Low | No | Simple flag/counter with single writer (e.g., shutdown signal) |
+| **`synchronized`** | Atomicity + visibility | Object/method | Low–medium | Yes | Simple critical sections; easier than locks when you don't need fairness |
+| **`AtomicInteger`** / **`Long`** | Atomicity without lock | Single variable | Low–medium | No | Counters, flags, or single-variable updates where lock-free is needed |
+| **`AtomicStampedReference`** | ABA prevention | Single reference | Low–medium | No | Lock-free data structures (linked lists, stacks) where reuse is a risk |
+| **`LongAdder`** | High-contention counter | Single logical counter | **High** | No | Write-heavy metrics/statistics where exact snapshots aren't critical |
+| **`ReentrantLock`** | Atomicity + control | Critical section | Low–medium | Yes | Complex synchronisation: timeouts, interruption, fairness options |
+| **`ReentrantReadWriteLock`** | Read-heavy workloads | Shared resource | Low–medium | Yes | Cache/index with many readers and occasional writers |
+| **`StampedLock`** | Optimistic read | Shared resource | Low–medium | Mostly no | Read-heavy data with very high throughput (e.g., coordinates, stats) |
+| **`ConcurrentHashMap`** | Thread-safe map | Multiple keys | Medium–high | Mostly no | Shared cache/dictionary; better than synchronized Map |
+| **`CopyOnWriteArrayList`** | Read-heavy list | Multiple elements | Low–medium | No | Lists with many readers, few writers (e.g., listeners, snapshots) |
+| **`ConcurrentLinkedQueue`** | Lock-free FIFO | Multiple elements | Medium–high | No | High-throughput task queues without blocking |
+| **`LinkedBlockingQueue`** | Blocking producer–consumer | Multiple elements | Medium | Yes | Decoupling producers/consumers with backpressure |
+| **`CountDownLatch`** | Wait for N events | Coordination | Low | Yes (blocking on await) | One-time synchronisation: "wait for all workers to finish" |
+| **`CyclicBarrier`** | Reusable barrier | Coordination | Low | Yes (blocking on await) | Multi-phase algorithm: "all threads rendezvous at checkpoint" |
+| **`Semaphore`** | Resource pool access | Coordination | Medium | Yes | Limit concurrent access to bounded resources (connection pools, thread limits) |
 
 ---
 
