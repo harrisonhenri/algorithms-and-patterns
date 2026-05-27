@@ -5,7 +5,7 @@ title: "Data structures in repo"
 
 # Data Structures Overview
 
-> **Entry point:** [structures/index.ts](../../structures/index.ts)
+> **Entry point:** [structures](../../structures)
 
 ## ADT vs Data Structures
 
@@ -14,6 +14,18 @@ An **Abstract Data Type (ADT)** defines _what_ operations are supported and thei
 A **Data Structure** is a concrete implementation of an ADT — it defines how data is organised in memory and how each operation executes (e.g. Array, Linked List, Hash Table, Heap, BST).
 
 > The same ADT can be implemented with different data structures; each carries different time/space trade-offs.
+
+This section maps the concrete implementations in this repository and where they are commonly applied.
+
+### Practical ADT mapping example
+
+The **Queue ADT** can be implemented in multiple ways depending on constraints:
+
+- Array + head pointer (used here in [queue](../../structures/queue/index.ts))
+- Linked list with head/tail pointers
+- Circular buffer for fixed-capacity, low-allocation workloads
+
+All implement FIFO semantics, but with different memory behavior and operational trade-offs.
 
 ---
 
