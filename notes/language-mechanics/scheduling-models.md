@@ -194,13 +194,13 @@ Concurrency mechanisms that are **cooperative by design**.
 
 ## Model comparison
 
-| Model | Isolation | Who schedules | Context switch cost | Parallelism | Typical failure mode |
-| --- | --- | --- | --- | --- | --- |
-| **Process** | Strong (separate memory) | OS scheduler | Higher | Yes | IPC bottlenecks, heavy startup |
-| **OS thread** | Shared process memory | OS scheduler | Medium | Yes | Data races, lock contention |
-| **Green thread** | Shared runtime/process memory | Runtime scheduler | Low | Usually only with runtime+cores | Blocking calls stall many tasks |
-| **Future/Promise** | Depends on executor model | Runtime + executor | N/A (abstraction) | Depends on backing model | Forgotten awaits, fan-out overload |
-| **Coroutine** | Depends on runtime scope | Runtime scheduler | Low | No by itself | Event-loop starvation |
+| Model              | Isolation                     | Who schedules      | Context switch cost | Parallelism                     | Typical failure mode               |
+| ------------------ | ----------------------------- | ------------------ | ------------------- | ------------------------------- | ---------------------------------- |
+| **Process**        | Strong (separate memory)      | OS scheduler       | Higher              | Yes                             | IPC bottlenecks, heavy startup     |
+| **OS thread**      | Shared process memory         | OS scheduler       | Medium              | Yes                             | Data races, lock contention        |
+| **Green thread**   | Shared runtime/process memory | Runtime scheduler  | Low                 | Usually only with runtime+cores | Blocking calls stall many tasks    |
+| **Future/Promise** | Depends on executor model     | Runtime + executor | N/A (abstraction)   | Depends on backing model        | Forgotten awaits, fan-out overload |
+| **Coroutine**      | Depends on runtime scope      | Runtime scheduler  | Low                 | No by itself                    | Event-loop starvation              |
 
 ---
 
