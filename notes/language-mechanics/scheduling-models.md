@@ -87,18 +87,128 @@ A scheduling strategy where **higher-priority tasks preempt lower-priority ones*
 
 ---
 
+## Processes vs Threads
+
+Two common execution units with different isolation and coordination costs.
+
+### Process
+
+- Own memory space and OS resources
+- Strong isolation from other processes
+- Communication requires IPC (pipes, sockets, shared memory, message queues)
+
+**When it fits**
+
+- CPU-bound workloads that need true parallelism
+- Fault isolation between components
+- Multi-tenant or security-sensitive boundaries
+
+---
+
+### Thread
+
+- Shares memory space inside one process
+- Low communication overhead via shared data
+- Requires synchronization (locks, atomics, semaphores)
+
+**When it fits**
+
+- I/O concurrency and request handling
+- Workloads with frequent data sharing
+- Low-latency in-process coordination
+
+---
+
+## Thread models: OS threads vs green threads
+
+### OS threads (1:1)
+
+- Each runtime thread maps to a kernel thread
+- Preemptive scheduling by the operating system
+- Good true parallelism on multiple cores
+
+**Tradeoff**
+
+- Higher context-switch overhead and stack memory cost
+
+---
+
+### Green threads (M:N or user-space)
+
+- Managed by language runtime, not directly by kernel
+- Usually cooperative at suspension points
+- Very lightweight for large concurrent task counts
+
+**Tradeoff**
+
+- Blocking calls can stall progress unless runtime handles non-blocking I/O
+
+**Examples**
+
+- Go goroutines (M:N runtime scheduling)
+- Java virtual threads (Loom)
+- Erlang processes
+
+---
+
+## Futures and promises
+
+A future/promise is a handle to a value that may not be available yet.
+
+- **Future** usually means "read a result later"
+- **Promise** usually means "complete this result" (resolve/reject)
+
+They enable:
+
+- Non-blocking composition of dependent work
+- Failure propagation across async boundaries
+- Timeout/cancellation wrappers (runtime dependent)
+
+**Common pitfalls**
+
+- Hidden blocking (`get()`/`await` in hot paths)
+- Unbounded fan-out (too many concurrent operations)
+- Lost errors when tasks are not awaited/observed
+
+---
+
 ## Coroutines and async models
 
 Concurrency mechanisms that are **cooperative by design**.
 
 - Execution switches only at explicit suspension points
-- No true parallelism unless backed by threads
+- No true parallelism unless backed by threads/processes
+- Excellent for high I/O concurrency with predictable scheduling points
 
 **Examples**
 
 - JavaScript async/await
 - Python asyncio
 - Kotlin coroutines
+
+**Common pitfall**
+
+- CPU-heavy work inside coroutine tasks can starve the event loop
+
+---
+
+## Model comparison
+
+| Model | Isolation | Who schedules | Context switch cost | Parallelism | Typical failure mode |
+| --- | --- | --- | --- | --- | --- |
+| **Process** | Strong (separate memory) | OS scheduler | Higher | Yes | IPC bottlenecks, heavy startup |
+| **OS thread** | Shared process memory | OS scheduler | Medium | Yes | Data races, lock contention |
+| **Green thread** | Shared runtime/process memory | Runtime scheduler | Low | Usually only with runtime+cores | Blocking calls stall many tasks |
+| **Future/Promise** | Depends on executor model | Runtime + executor | N/A (abstraction) | Depends on backing model | Forgotten awaits, fan-out overload |
+| **Coroutine** | Depends on runtime scope | Runtime scheduler | Low | No by itself | Event-loop starvation |
+
+---
+
+## Repository examples
+
+- FIFO scheduling intuition: [Queue](../../structures/queue/index.ts)
+- Priority scheduling intuition: [Heap](../../structures/heap/index.ts)
+- Dependency scheduling flow: [Kahn topological sort](../../algorithms/graph/kahn/index.ts)
 
 ---
 
