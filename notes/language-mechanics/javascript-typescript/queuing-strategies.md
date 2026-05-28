@@ -1,5 +1,14 @@
 ---
-tags: [javascript, nodejs, queuing, concurrency-control, batch-processing, p-queue, p-limit]
+tags:
+  [
+    javascript,
+    nodejs,
+    queuing,
+    concurrency-control,
+    batch-processing,
+    p-queue,
+    p-limit,
+  ]
 title: "Queuing Strategies: p-queue, p-limit & Batch Processing"
 domain: "language-mechanics"
 ---
@@ -15,34 +24,34 @@ When automatic backpressure isn't enough, you need explicit **concurrency contro
 Scenario: You need to process 10,000 API calls, but the API only allows 5 concurrent requests.
 
 **Without queuing** (fails):
+
 ```ts
-const results = await Promise.all(
-  items.map((item) => callAPI(item))
-); // ❌ All 10,000 run in parallel → rate limit errors
+const results = await Promise.all(items.map((item) => callAPI(item))); // ❌ All 10,000 run in parallel → rate limit errors
 ```
 
 **With queuing** (succeeds):
+
 ```ts
 const queue = new PQueue({ concurrency: 5 });
 const results = await Promise.all(
-  items.map((item) => queue.add(() => callAPI(item)))
+  items.map((item) => queue.add(() => callAPI(item))),
 ); // ✅ Only 5 run at a time
 ```
 
 ---
 
-## Overview: p-queue vs p-limit vs p-* Utilities
+## Overview: p-queue vs p-limit vs p-\* Utilities
 
 The quickest comparison for the most common tools:
 
-| Feature | p-queue | p-limit | Notes |
-|---------|---------|---------|-------|
-| **Concurrency limit** | ✅ | ✅ | Primary feature |
-| **Priority queue** | ✅ | ❌ | Run important tasks first |
-| **Delays** | ✅ | ❌ | `delay` option before task runs |
-| **Retries** | ✅ | ❌ | Built-in retry logic |
-| **Complexity** | Heavier | Lighter | p-limit is simpler |
-| **Use case** | Complex workflows | Simple concurrency control |
+| Feature               | p-queue           | p-limit                    | Notes                           |
+| --------------------- | ----------------- | -------------------------- | ------------------------------- |
+| **Concurrency limit** | ✅                | ✅                         | Primary feature                 |
+| **Priority queue**    | ✅                | ❌                         | Run important tasks first       |
+| **Delays**            | ✅                | ❌                         | `delay` option before task runs |
+| **Retries**           | ✅                | ❌                         | Built-in retry logic            |
+| **Complexity**        | Heavier           | Lighter                    | p-limit is simpler              |
+| **Use case**          | Complex workflows | Simple concurrency control |
 
 **Rule of thumb**: Start with **p-limit**, graduate to **p-queue** if you need priority or retries.
 
@@ -53,38 +62,38 @@ The quickest comparison for the most common tools:
 Install: `npm install p-limit`
 
 ```ts
-import pLimit from 'p-limit';
+import pLimit from "p-limit";
 
 const limit = pLimit(5); // Max 5 concurrent
 const items = Array.from({ length: 100 }, (_, i) => i);
 
 const results = await Promise.all(
-  items.map((item) => limit(() => callExpensiveAPI(item)))
+  items.map((item) => limit(() => callExpensiveAPI(item))),
 );
 ```
 
 ### Real Example: Batch Resize Images
 
 ```ts
-import pLimit from 'p-limit';
-import sharp from 'sharp';
+import pLimit from "p-limit";
+import sharp from "sharp";
 
 const limit = pLimit(3); // 3 concurrent image operations
 
 async function resizeImages(imagePaths: string[]) {
   const tasks = imagePaths.map((path) =>
-    limit(() => sharp(path).resize(800, 600).toFile(`${path}.resized.jpg`))
+    limit(() => sharp(path).resize(800, 600).toFile(`${path}.resized.jpg`)),
   );
 
   try {
     await Promise.all(tasks);
-    console.log('All images resized');
+    console.log("All images resized");
   } catch (err) {
-    console.error('Resize failed:', err);
+    console.error("Resize failed:", err);
   }
 }
 
-resizeImages(['img1.jpg', 'img2.jpg', 'img3.jpg']);
+resizeImages(["img1.jpg", "img2.jpg", "img3.jpg"]);
 ```
 
 ---
@@ -94,7 +103,7 @@ resizeImages(['img1.jpg', 'img2.jpg', 'img3.jpg']);
 Install: `npm install p-queue`
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 const queue = new PQueue({
   concurrency: 5, // Max 5 concurrent
@@ -108,25 +117,22 @@ queue.add(() => callAPI(item));
 ### Example: Priority Queue for Database Writes
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 const queue = new PQueue({ concurrency: 3 });
 
 // High-priority write (e.g., critical order)
 queue.add(
   () => saveToDatabase({ ...criticalOrder }),
-  { priority: 10 } // Higher priority = runs first
+  { priority: 10 }, // Higher priority = runs first
 );
 
 // Low-priority write (e.g., analytics)
-queue.add(
-  () => saveToDatabase({ ...analyticsData }),
-  { priority: 1 }
-);
+queue.add(() => saveToDatabase({ ...analyticsData }), { priority: 1 });
 
 // Wait for all tasks
 await queue.onIdle();
-console.log('All tasks complete');
+console.log("All tasks complete");
 ```
 
 ### Example: Exponential Backoff with p-queue
@@ -153,7 +159,7 @@ async function callAPIWithRetry(item: any) {
 const queue = new PQueue({ concurrency: 5 });
 
 const results = await Promise.all(
-  items.map((item) => queue.add(() => callAPIWithRetry(item)))
+  items.map((item) => queue.add(() => callAPIWithRetry(item))),
 );
 ```
 
@@ -163,11 +169,11 @@ const results = await Promise.all(
 
 Batch processing accumulates items and processes them in groups. It's **different from concurrency control**:
 
-| Aspect | Concurrency Control | Batch Processing |
-|--------|---------------------|------------------|
-| **Goal** | Limit parallel tasks | Group items before processing |
-| **Trigger** | Item count | Size threshold reached |
-| **Example** | Max 5 API calls | Send 100 items to DB at once |
+| Aspect      | Concurrency Control  | Batch Processing              |
+| ----------- | -------------------- | ----------------------------- |
+| **Goal**    | Limit parallel tasks | Group items before processing |
+| **Trigger** | Item count           | Size threshold reached        |
+| **Example** | Max 5 API calls      | Send 100 items to DB at once  |
 
 ### Simple Batch Processor
 
@@ -200,19 +206,16 @@ class BatchProcessor<T, R> {
       await this.processFunc(toProcess);
       console.log(`Processed batch of ${toProcess.length}`);
     } catch (err) {
-      console.error('Batch processing failed:', err);
+      console.error("Batch processing failed:", err);
     }
   }
 }
 
 // Usage
-const processor = new BatchProcessor<any, any>(
-  100,
-  async (items) => {
-    // Send to database in one operation
-    await db.insert(items);
-  }
-);
+const processor = new BatchProcessor<any, any>(100, async (items) => {
+  // Send to database in one operation
+  await db.insert(items);
+});
 
 for (const item of items) {
   await processor.add(item);
@@ -228,7 +231,7 @@ await processor.flush(); // Send remaining items
 Combine batch accumulation with concurrency control:
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 class BatchQueueProcessor<T, R> {
   private batch: T[] = [];
@@ -239,7 +242,7 @@ class BatchQueueProcessor<T, R> {
   constructor(
     batchSize: number,
     processFunc: (items: T[]) => Promise<R[]>,
-    concurrency: number = 3
+    concurrency: number = 3,
   ) {
     this.batchSize = batchSize;
     this.processFunc = processFunc;
@@ -276,7 +279,7 @@ const processor = new BatchQueueProcessor<any, any>(
     console.log(`Inserting batch of ${batch.length}`);
     await db.insert(batch);
   },
-  3 // max concurrent batches
+  3, // max concurrent batches
 );
 
 for (const record of records) {
@@ -288,76 +291,10 @@ await processor.flush();
 
 ---
 
-## Real-World: Stream + Batch + Queue
-
-Combining backpressure, batching, and queuing:
-
-```ts
-import { Transform, Readable, pipeline } from 'stream';
-import { promisify } from 'util';
-import PQueue from 'p-queue';
-
-async function* dataSource() {
-  for (let i = 1; i <= 100000; i++) {
-    yield { id: i, value: Math.random() };
-  }
-}
-
-const queue = new PQueue({ concurrency: 5 }); // Max 5 DB operations
-let batch: any[] = [];
-const batchSize = 1000;
-
-const transformStream = new Transform({
-  objectMode: true,
-  async transform(item, encoding, callback) {
-    batch.push(item);
-
-    if (batch.length >= batchSize) {
-      const toInsert = [...batch];
-      batch = [];
-
-      // Queue the batch insert; backpressure pauses if queue fills up
-      queue.add(() =>
-        db.collection('items').insertMany(toInsert).then(() => {
-          console.log(`Inserted batch of ${toInsert.length}`);
-        })
-      );
-    }
-
-    callback();
-  },
-
-  async flush(callback) {
-    if (batch.length > 0) {
-      await queue.add(() =>
-        db.collection('items').insertMany(batch).then(() => {
-          console.log(`Inserted final batch of ${batch.length}`);
-        })
-      );
-    }
-    callback();
-  },
-});
-
-(async () => {
-  const source = Readable.from(dataSource(), { objectMode: true });
-  const asyncPipeline = promisify(pipeline);
-
-  try {
-    await asyncPipeline(source, transformStream);
-    console.log('All data processed');
-  } catch (err) {
-    console.error('Pipeline failed:', err);
-  }
-})();
-```
-
----
-
 ## Monitoring Queue Health
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 const queue = new PQueue({ concurrency: 5 });
 
@@ -368,13 +305,13 @@ setInterval(() => {
   console.log(`Pending: ${pending}, Queued: ${size}`);
 
   if (size > 1000) {
-    console.warn('Queue backing up!');
+    console.warn("Queue backing up!");
   }
 }, 1000);
 
 // Wait for completion
 queue.onIdle().then(() => {
-  console.log('All tasks complete');
+  console.log("All tasks complete");
 });
 ```
 
@@ -403,7 +340,7 @@ Need automatic flow control?
 
 This guide covers the **fundamentals** of queuing. For more advanced topics, see:
 
-- **All p-* utilities** (p-retry, p-timeout, p-throttle, etc.) → [Complete p-* Utilities Guide](p-utilities-complete-guide.md)
+- **All p-\* utilities** (p-retry, p-timeout, p-throttle, etc.) → [Complete p-\* Utilities Guide](p-utilities-complete-guide.md)
 - **Real-world composition patterns** → [Queue Patterns & Composition](queue-patterns-and-composition.md)
 - **Performance tuning & monitoring** → [Queue Performance & Tuning](queue-performance-and-tuning.md)
 
