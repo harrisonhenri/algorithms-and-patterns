@@ -24,7 +24,7 @@ There are many forms of working with events:
 
 ## Event sourcing
 
-![image.png](../assets/microservices/eda.png)
+![Event-Driven Architecture](../../assets/system-design/eda.png)
 
 ## Kafka x RabbitMQ
 
@@ -151,7 +151,7 @@ Kafka tracks:
   - Producer ID
   - Message sequence numbers
   - Per-partition per-producer
-  
+
 Guarantees:
   - Each message sent exactly once
   - No duplicates on network retry
@@ -186,9 +186,9 @@ Partial success impossible
 ```
 Consumer with exactly-once:
 
-Key insight: 
+Key insight:
   Atomic store of (offset, processing_result)
-  
+
 1. Fetch message from partition 5, offset 100
 2. Process message (idempotently)
 3. Atomically store:
@@ -250,7 +250,7 @@ Checkpointing:
   2. Snapshot all state
   3. Flush outputs atomically
   4. Resume processing
-  
+
 Failure recovery:
   ✓ Restore from checkpoint
   ✓ Replay from offset
@@ -280,5 +280,4 @@ Before claiming exactly-once, ensure:
 ---
 
 ![image.png](../assets/microservices/system-design-cheat-sheet-1.png)
-
 ![image.png](../assets/microservices/system-design-cheat-sheet-2.png)

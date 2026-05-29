@@ -1,5 +1,14 @@
 ---
-tags: [system-design, distributed-systems, consensus, theory, system-models, FLP, linearizability]
+tags:
+  [
+    system-design,
+    distributed-systems,
+    consensus,
+    theory,
+    system-models,
+    FLP,
+    linearizability,
+  ]
 title: "Consistency, consensus, and replication"
 ---
 
@@ -46,7 +55,7 @@ Different distributed systems operate under different assumptions about timing a
 
 - Most realistic for real systems
 - Most practical consensus algorithms designed for this
-- Assumes synchrony *usually*, not always
+- Assumes synchrony _usually_, not always
 
 ### Examples
 
@@ -416,8 +425,8 @@ Total order broadcast can be implemented using consensus:
 - Writes always go to the leader; followers replicate.
 - **Reads from the leader** (or followers with synchronous replication) **can be linearizable**.
 - Not every single-leader system is linearizable:
-    - Some use *snapshot isolation* (break recency since SI gives you a consistent snapshot **from the past, not a guarantee that reads reflect the most recent committed write).
-    - Concurrency bugs can cause inconsistency.
+  - Some use _snapshot isolation_ (break recency since SI gives you a consistent snapshot from the past, not a guarantee that reads reflect the most recent committed write).
+  - Concurrency bugs can cause inconsistency.
 - Risk: a node may believe it is the leader when it isn’t → **split-brain** → violates linearizability.
 - In asynchronous replication, **failover can lose commits**, breaking durability and linearizability.
 - **Examples:** PostgreSQL (read from primary), MySQL/MariaDB Primary–Replica, MongoDB (readPreference: primary).
@@ -444,8 +453,6 @@ Total order broadcast can be implemented using consensus:
 - Even with “strict” quorums, nonlinearizable behavior still occurs.
 - **Examples:** Amazon Dynamo (original), Apache Cassandra, Riak.
 
-
-
 ---
 
 # Distributed Coordination and Consensus Models
@@ -455,9 +462,9 @@ Total order broadcast can be implemented using consensus:
 - Designed for **atomic commit** across multiple participants (all-or-nothing).
 - Uses a **fixed coordinator** (no leader election).
 - Requires **unanimous agreement**:
-    - Every participant must vote *YES*.
-- If the coordinator fails after participants vote *YES*:
-    - Participants are **blocked indefinitely** (in-doubt state).
+  - Every participant must vote _YES_.
+- If the coordinator fails after participants vote _YES_:
+  - Participants are **blocked indefinitely** (in-doubt state).
 - **No progress guarantee** under failures → violates termination.
 - Safety is preserved (no inconsistent commit), but **availability is lost**.
 - Assumes failures are rare and short-lived.
@@ -467,18 +474,18 @@ Total order broadcast can be implemented using consensus:
 **Scenario:** Transaction updating balances in DB_A and DB_B.
 
 1. **Prepare phase**
-    - Coordinator sends `PREPARE` to DB_A and DB_B.
-    - DB_A checks constraints, writes intent to disk, replies `YES`.
-    - DB_B does the same, replies `YES`.
+   - Coordinator sends `PREPARE` to DB_A and DB_B.
+   - DB_A checks constraints, writes intent to disk, replies `YES`.
+   - DB_B does the same, replies `YES`.
 2. **Commit phase**
-    - Coordinator receives all `YES` votes.
-    - Coordinator sends `COMMIT` to DB_A and DB_B.
+   - Coordinator receives all `YES` votes.
+   - Coordinator sends `COMMIT` to DB_A and DB_B.
 3. **Failure case**
-    - Coordinator crashes **after** DB_A and DB_B voted `YES`, **before** sending `COMMIT`.
-    - DB_A and DB_B:
-        - Cannot commit (no COMMIT received).
-        - Cannot abort (they already voted YES).
-        - Stay blocked waiting for coordinator recovery.
+   - Coordinator crashes **after** DB_A and DB_B voted `YES`, **before** sending `COMMIT`.
+   - DB_A and DB_B:
+     - Cannot commit (no COMMIT received).
+     - Cannot abort (they already voted YES).
+     - Stay blocked waiting for coordinator recovery.
 
 **Result**
 
@@ -522,8 +529,8 @@ Total order broadcast can be implemented using consensus:
 3. Leader proposes the command to all nodes.
 4. Leader waits for acknowledgments from **any 3 nodes (majority)**.
 5. Once a majority accepts:
-    - The value is **decided**.
-    - The leader commits and notifies followers.
+   - The value is **decided**.
+   - The leader commits and notifies followers.
 
 **Failure case**
 
@@ -572,17 +579,17 @@ Total order broadcast can be implemented using consensus:
 **Scenario:** Decide a single value `V`.
 
 1. **Prepare phase**
-    - Proposer sends `PREPARE(n)` with proposal number `n`.
-    - Acceptors reply with:
-        - Promise not to accept proposals `< n`.
-        - The highest-numbered value they already accepted (if any).
+   - Proposer sends `PREPARE(n)` with proposal number `n`.
+   - Acceptors reply with:
+     - Promise not to accept proposals `< n`.
+     - The highest-numbered value they already accepted (if any).
 2. **Accept phase**
-    - Proposer selects:
-        - The highest-numbered previously accepted value, or
-        - Its own value if none exist.
-    - Sends `ACCEPT(n, V)` to acceptors.
+   - Proposer selects:
+     - The highest-numbered previously accepted value, or
+     - Its own value if none exist.
+   - Sends `ACCEPT(n, V)` to acceptors.
 3. **Decision**
-    - If a majority accepts `ACCEPT(n, V)`, the value is chosen.
+   - If a majority accepts `ACCEPT(n, V)`, the value is chosen.
 
 **Failure case**
 
@@ -613,9 +620,9 @@ Total order broadcast can be implemented using consensus:
 
 - Designed explicitly to be **understandable and implementable**.
 - Uses clear roles:
-    - Leader
-    - Follower
-    - Candidate
+  - Leader
+  - Follower
+  - Candidate
 - Uses **terms** to represent epochs.
 - Log replication and leader election are tightly specified.
 - Easier operational reasoning and debugging.
@@ -625,19 +632,19 @@ Total order broadcast can be implemented using consensus:
 **Scenario:** 3-node cluster appending a log entry.
 
 1. **Leader election**
-    - Followers time out.
-    - One node becomes a candidate, increments term.
-    - Requests votes from others.
-    - Receives majority → becomes leader.
+   - Followers time out.
+   - One node becomes a candidate, increments term.
+   - Requests votes from others.
+   - Receives majority → becomes leader.
 2. **Log replication**
-    - Client sends command to leader.
-    - Leader appends entry to its log.
-    - Leader sends `AppendEntries` to followers.
-    - Followers append and acknowledge.
+   - Client sends command to leader.
+   - Leader appends entry to its log.
+   - Leader sends `AppendEntries` to followers.
+   - Followers append and acknowledge.
 3. **Commit**
-    - Leader receives majority acknowledgments.
-    - Entry is committed.
-    - Leader notifies followers.
+   - Leader receives majority acknowledgments.
+   - Entry is committed.
+   - Leader notifies followers.
 
 **Failure case**
 
@@ -668,28 +675,28 @@ Total order broadcast can be implemented using consensus:
 ## 2PC vs Consensus (Key Differences)
 
 - **Goal**
-    - 2PC: atomic commit of a single transaction
-    - Consensus: continuous agreement over time
+  - 2PC: atomic commit of a single transaction
+  - Consensus: continuous agreement over time
 - **Coordinator / Leader**
-    - 2PC: fixed coordinator
-    - Consensus: dynamically elected leader
+  - 2PC: fixed coordinator
+  - Consensus: dynamically elected leader
 - **Failure handling**
-    - 2PC: blocks on coordinator failure
-    - Consensus: recovers automatically if majority survives
+  - 2PC: blocks on coordinator failure
+  - Consensus: recovers automatically if majority survives
 - **Votes required**
-    - 2PC: all participants
-    - Consensus: majority quorum
+  - 2PC: all participants
+  - Consensus: majority quorum
 - **Termination**
-    - 2PC: not guaranteed
-    - Consensus: guaranteed with majority
+  - 2PC: not guaranteed
+  - Consensus: guaranteed with majority
 
 ### Concrete contrast example
 
-*2PC:*
+_2PC:_
 
 Coordinator crashes → participants freeze.
 
-*Consensus:*
+_Consensus:_
 
 Leader crashes → new leader elected → system continues.
 
@@ -698,20 +705,20 @@ Leader crashes → new leader elected → system continues.
 ## Paxos vs Raft (Key Differences)
 
 - **Design goal**
-    - Paxos: theoretical minimalism
-    - Raft: practical understandability
+  - Paxos: theoretical minimalism
+  - Raft: practical understandability
 - **Leader concept**
-    - Paxos: implicit
-    - Raft: explicit
+  - Paxos: implicit
+  - Raft: explicit
 - **Ease of implementation**
-    - Paxos: very hard
-    - Raft: much easier
+  - Paxos: very hard
+  - Raft: much easier
 - **Operational clarity**
-    - Paxos: difficult during incidents
-    - Raft: predictable behavior
+  - Paxos: difficult during incidents
+  - Raft: predictable behavior
 - **Adoption trend**
-    - Paxos: declining for new systems
-    - Raft: dominant in modern systems
+  - Paxos: declining for new systems
+  - Raft: dominant in modern systems
 
 ### Practical takeaway example
 

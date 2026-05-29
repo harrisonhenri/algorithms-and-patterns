@@ -158,7 +158,7 @@ You often cannot know:
 
 # Unreliable Networks
 
-## Shared-Nothing Architecture
+## Shared-Nothing Architecture (Mostly L3-L7)
 
 Machines communicate **only through networks**:
 
@@ -174,12 +174,12 @@ Network failure = system failure.
 
 ---
 
-## Asynchronous Packet Networks
+## Asynchronous Packet Networks (Primarily L3)
 
 Internet and datacenter networks provide:
 
 - **No delivery guarantees** — packets may be lost
-- **No timing guarantees** — arrival time is unpredictable  
+- **No timing guarantees** — arrival time is unpredictable
 - **No bounded delays** — wait time can be arbitrarily long
 
 Possible outcomes when sending a request:
@@ -196,7 +196,7 @@ The sender cannot distinguish between these cases.
 
 ---
 
-## The Timeout Problem
+## The Timeout Problem (L4/L7)
 
 Because failures are ambiguous, systems rely on **timeouts**.
 
@@ -220,7 +220,7 @@ Example:
 
 ---
 
-## Network Congestion and Queueing
+## Network Congestion and Queueing (L2-L4 and L7)
 
 Most delays come **not from physical distance** but from:
 
@@ -238,9 +238,9 @@ Latency is highly variable, especially under load.
 
 ---
 
-## TCP vs UDP
+## TCP vs UDP (Transport Layer, L4)
 
-### TCP
+### TCP (L4)
 
 Provides:
 
@@ -257,7 +257,7 @@ Trade-off:
 
 ---
 
-### UDP
+### UDP (L4)
 
 Provides:
 
@@ -280,7 +280,7 @@ Useful when:
 
 ---
 
-## Synchronous vs Packet-Switched Networks
+## Synchronous vs Packet-Switched Networks (L1-L3)
 
 ### Synchronous Networks
 
@@ -323,6 +323,79 @@ Key principle:
 > **Tradeoff: Predictability vs Resource Utilization**
 
 Most systems choose packet-switched and build fault tolerance around its unpredictability.
+
+---
+
+## Network Routing Stability and Flap Damping (L3)
+
+### What Is Route Flapping?
+
+Route flapping happens when a route repeatedly oscillates between available and unavailable states.
+
+Common causes:
+
+- Unstable physical links
+- Interface resets
+- Intermittent provider outages
+- Misconfigured BGP advertisements
+
+Impact:
+
+- Routing table churn
+- Increased control-plane CPU load
+- Slower convergence
+- Cascading reachability issues
+
+---
+
+### Flap Damping in BGP
+
+Flap damping is a suppression mechanism that penalizes unstable routes.
+
+Typical model:
+
+1. Each flap adds a penalty (example: 1000 points)
+2. Penalty decays exponentially over time (example half-life: 15 minutes)
+3. If penalty exceeds suppress threshold (example: 2000), route is suppressed
+4. Route is reused only after penalty decays below reuse threshold (example: 750)
+
+Example:
+
+- 3 fast flaps -> penalty about 3000
+- Route becomes suppressed
+- Decay eventually drops penalty below reuse threshold
+- Route can be announced again
+
+This improves global stability, but can delay recovery for routes that become healthy quickly.
+
+---
+
+### When to Use It
+
+Useful when:
+
+- You operate BGP-heavy environments with persistent route oscillation
+- Instability causes recurring churn and convergence storms
+
+Use carefully when:
+
+- Routes flap briefly during maintenance windows
+- Low-latency recovery is more important than suppressing noisy routes
+
+Modern context:
+
+- Some operators reduce or disable aggressive damping because older defaults could over-penalize prefixes.
+- The design principle still matters: reduce control-plane noise without harming recovery.
+
+---
+
+## OSI Quick Reference for This Document
+
+- **L1 (Physical):** cables, optics, radio links
+- **L2 (Data Link):** frames, MAC, switches, local queueing
+- **L3 (Network):** IP routing, BGP, route propagation, flap damping
+- **L4 (Transport):** TCP/UDP, retransmission, flow control, timeouts
+- **L5-L7 (Session/Presentation/Application):** TLS sessions, HTTP, APIs, gateways, business protocols
 
 ---
 
@@ -543,6 +616,72 @@ Key principle:
 
 ---
 
+## Membership Protocols (SWIM and Gossip)
+
+Membership protocols maintain cluster views and support failure detection at scale.
+
+### SWIM (Scalable Weakly-consistent Infection-style Membership)
+
+Core ideas:
+
+- Each node periodically probes a random peer
+- If direct probe fails, node asks indirect peers to probe (indirect ping)
+- Nodes spread membership updates using gossip
+- Failures move through states like **alive -> suspect -> dead**
+
+Why it works well:
+
+- Decentralized (no single coordinator)
+- Constant-size probing work per node per round
+- Scales to large clusters with bounded overhead
+
+Typical uses:
+
+- Service discovery and health membership in large fleets
+- Consul-style cluster membership
+
+---
+
+### Gossip-Based Membership
+
+Gossip protocols disseminate membership state probabilistically:
+
+- Nodes periodically exchange partial views
+- Updates spread epidemically through the cluster
+- Convergence is eventually consistent
+
+Strengths:
+
+- Highly fault tolerant
+- Easy horizontal scale
+- Handles frequent node churn
+
+Trade-off:
+
+- Temporary view divergence is expected
+- Membership accuracy converges over time rather than instantly
+
+Examples:
+
+- Cassandra-style peer dissemination
+- Akka cluster membership dissemination
+
+---
+
+### Comparison
+
+| Approach                      | Detection Model                                 | Overhead Pattern                                | Consistency of View                                    | Failure Mode Risk                                       |
+| ----------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
+| Centralized heartbeat manager | Single observer and heartbeat timeout           | Central bottleneck grows with cluster size      | Fast if manager healthy                                | Single point of failure and overload                    |
+| Generic gossip membership     | Probabilistic peer exchange                     | Distributed, typically moderate per round       | Eventual consistency                                   | Temporary divergence during churn                       |
+| SWIM-style membership         | Direct + indirect probes + gossip dissemination | Constant probing work per node + gossip updates | Eventual consistency with strong practical convergence | False suspicions still possible under severe partitions |
+
+Key takeaway:
+
+> **In distributed systems, membership is usually probabilistic and suspicion-based, not absolute truth.**
+
+---
+
 ## Byzantine Faults vs Crash Faults
 
 ### Crash Faults (Non-Byzantine)
@@ -726,7 +865,7 @@ During a network partition, systems must choose:
 Most systems choose:
 
 > **Partition over Availability (CP)**
-> 
+>
 > Preserve safety, sacrifice liveness
 
 Rationale:
@@ -913,6 +1052,38 @@ Remember: a **fault** is a component deviating from spec, while a **failure** is
 | **Active–Passive (Hot)**     | Fully synchronized mirror ready for instant takeover. High cost but minimal downtime and data loss.                                                                                   | **Hot** – Standby **active**, fully synchronized but not serving traffic | **RTO:** Seconds**RPO:** Near-zero                      | 💰💰💰 (High)           | Mission-critical systems (banking, aviation, telecom)                       |
 | **N+1 Redundancy**           | One or more standby nodes protect several active nodes. Shares spare capacity, reducing cost while keeping reliability.                                                               | **Warm/Shared** – Standby covers multiple actives                        | **RTO:** Seconds–Minutes**RPO:** Low                    | 💰💰 (Moderate)         | Load balancers, clustered web servers                                       |
 | **Geo-Distributed Failover** | Systems replicated across regions for large-scale disaster recovery. Extremely resilient but adds latency and replication cost.                                                       | **Warm or Hot** – Remote standby varies by sync mode                     | **RTO:** Seconds–Minutes**RPO:** Depends on replication | 💰💰💰 (High–Very High) | Multi-region cloud deployments, global services                             |
+
+## Disaster recovery (RTO, RPO)
+
+Disaster recovery defines how quickly systems recover and how much data can be lost after a major incident.
+
+- **RTO (Recovery Time Objective):** maximum acceptable downtime
+- **RPO (Recovery Point Objective):** maximum acceptable data loss window
+
+### Core recovery strategies
+
+| Strategy           | Description                                                                                                   | Typical RTO        | Typical RPO                                  | Cost Profile      | Mapping to failover modes                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------- | ----------------- | ----------------------------------------- |
+| Backup and restore | Data is backed up and restored when disaster occurs. Infrastructure is recreated or restarted after incident. | Hours to days      | Hours (or last successful backup interval)   | Low               | Active-Passive (Cold)                     |
+| Pilot light        | Minimal critical components stay running; full stack is started on failover.                                  | Minutes to hours   | Minutes to low hours                         | Low to moderate   | Active-Passive (Warm, partial stack)      |
+| Warm standby       | Fully functional but scaled-down environment, continuously updated and ready to scale up.                     | Minutes            | Seconds to minutes                           | Moderate          | Active-Passive (Warm)                     |
+| Multi-site         | More than one fully functional site/region serves or can immediately serve production traffic.                | Seconds to minutes | Near-zero to seconds (depends on sync model) | High to very high | Active-Active or Geo-Distributed Failover |
+
+### How to choose
+
+- Choose **backup and restore** when cost is primary and downtime is acceptable.
+- Choose **pilot light** when core services must recover faster but full duplication is too expensive.
+- Choose **warm standby** for balanced resilience/cost with predictable recovery.
+- Choose **multi-site** for mission-critical services where both downtime and data loss must be minimal.
+
+### Should this be part of failover modes?
+
+Yes. Disaster recovery strategies are the regional/site-level extension of failover modes:
+
+- Failover mode explains **how traffic/service switches**
+- DR strategy explains **how much environment exists before failure**
+
+Together they define the complete availability posture.
 
 ## SLA, SLO e SLI
 

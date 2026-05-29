@@ -1,5 +1,14 @@
 ---
-tags: [system-design, transactions, concurrency, theory, exactly-once, safety, liveness]
+tags:
+  [
+    system-design,
+    transactions,
+    concurrency,
+    theory,
+    exactly-once,
+    safety,
+    liveness,
+  ]
 title: "Transactions and concurrency"
 ---
 
@@ -61,16 +70,16 @@ Example:
 
 During failure scenarios, systems must choose:
 
-| Scenario | Safety Priority | Liveness Priority |
-|----------|---|---|
-| **Network partition** | Reject requests to ensure consistency | Serve stale data to stay available |
-| **Coordinator failure** | Block other nodes (2PC) | Retry or failover (risk inconsistency) |
-| **Lock contention** | Hold lock (ensure atomicity) | Timeout and abort (sacrifice consistency) |
+| Scenario                | Safety Priority                       | Liveness Priority                         |
+| ----------------------- | ------------------------------------- | ----------------------------------------- |
+| **Network partition**   | Reject requests to ensure consistency | Serve stale data to stay available        |
+| **Coordinator failure** | Block other nodes (2PC)               | Retry or failover (risk inconsistency)    |
+| **Lock contention**     | Hold lock (ensure atomicity)          | Timeout and abort (sacrifice consistency) |
 
 Most production systems choose:
 
 > **Safety over Liveness**
-> 
+>
 > "It is better to be consistent and occasionally unavailable than to serve inconsistent data."
 
 ---
@@ -331,7 +340,7 @@ Exactly-once consumer (offset + message paired)
 Configuration:
   enable.idempotence = true
   isolation.level = read_committed
-  
+
 Result: Exactly-once across Kafka producer-broker-consumer chain
 ```
 
@@ -401,8 +410,6 @@ Reference: [90] Klang, Viktor. "I'm coining the phrase 'effectively-once' for me
 
 ---
 
----
-
 # Transactions and locking
 
 <aside>
@@ -458,10 +465,10 @@ It's more of a theoretical model (does not have too much addoption in practice).
 2. If the coordinator receives a “Yes” vote from all participants, it sends a “pre-commit” message. The participants, after receiving the “pre-commit” message, also enter the “pre-committed” state and acknowledge the coordinator
 3. After receiving an acknowledgment from all participants, the coordinator sends a “do-commit” message. Upon receiving the “do-commit” message, the participants also move to the “committed” state
 
-| Protocol | Availability | Failure Handling | Complexity | Performance | Best Use Case |
-| --- | --- | --- | --- | --- | --- |
-| **2PC** | Low | Blocking if coordinator fails | Moderate | **Slow** (waiting for all participants) | Financial transactions, strong consistency needed |
-| **3PC** | Medium | Non-blocking with timeouts | High | **Slower** (extra communication step) | Fault-tolerant distributed systems |
+| Protocol | Availability | Failure Handling              | Complexity | Performance                             | Best Use Case                                     |
+| -------- | ------------ | ----------------------------- | ---------- | --------------------------------------- | ------------------------------------------------- |
+| **2PC**  | Low          | Blocking if coordinator fails | Moderate   | **Slow** (waiting for all participants) | Financial transactions, strong consistency needed |
+| **3PC**  | Medium       | Non-blocking with timeouts    | High       | **Slower** (extra communication step)   | Fault-tolerant distributed systems                |
 
 ## Saga pattern
 
@@ -477,7 +484,288 @@ Orchestrated transactions offer better visibility into workflow dependencies, mo
 
 ---
 
+# High-Concurrency Systems and Conflict Avoidance
 
+## The Fundamental Problem
+
+When conflicts are common, systems operating at high concurrency face a critical challenge:
+
+> **Truly high-scale systems avoid "everyone concurrently updating the same thing."**
+
+This is one of the hardest problems in distributed systems and databases. The naive approach of optimistic retries collapses under heavy contention because:
+
+- Each abort requires a retry
+- Retries cause cascading load
+- Aborts increase exponentially with contention
+- System throughput plummets despite more resources
+
+Instead of accepting conflicts, successful high-concurrency systems **redesign the architecture** to:
+
+- Minimize contention at the source
+- Serialize ownership (one owner per entity)
+- Partition state (divide responsibility)
+- Avoid global coordination
+
+---
+
+## A. Single-Writer Ownership
+
+**Key principle:** Instead of allowing many threads to concurrently update the same entity, assign one logical owner to process all updates sequentially.
+
+This is **extremely common** in production systems because it completely eliminates conflicting writes.
+
+Example:
+
+```
+❌ Bad: 100 threads update account 123 concurrently
+   → Conflicts, retries, contention
+
+✅ Good: One logical owner processes all account 123 updates sequentially
+   → No conflicts, no retries
+```
+
+---
+
+## B. Kafka Partitioning Model
+
+A practical application of single-writer ownership:
+
+```
+Partition key = accountId
+
+all operations for account 123 → same partition → same processing thread
+```
+
+**Results:**
+
+- Kafka guarantees order per partition
+- All operations for one account process sequentially
+- **Single-threaded semantics without application complexity**
+- Naturally eliminates read-modify-write conflicts
+
+This pattern is **fundamental to modern data pipeline architecture**.
+
+---
+
+## C. Actor Model
+
+Frameworks like Akka and Project Orleans implement this at the application level:
+
+```
+Actor = logical owner of one entity
+
+AccountActor(123) processes:
+  - deposit messages
+  - withdraw messages
+  - transfer messages
+  ... sequentially
+```
+
+**Advantages:**
+
+- No shared-memory concurrency
+- No explicit locking needed
+- Scales horizontally across clusters
+- Natural failure isolation
+
+**Trade-off:**
+
+- Must think in message passing terms
+- Cross-actor coordination adds complexity
+
+---
+
+## D. Ledger and Event Sourcing
+
+Financial systems frequently avoid mutable state:
+
+**Instead of:**
+
+```sql
+UPDATE account SET balance = balance - 100
+WHERE id = 123;
+```
+
+**They do:**
+
+```
+append transaction event:
+  { account_id: 123, delta: -100, timestamp: T }
+```
+
+Then compute balance as derived state:
+
+| Transaction | Delta | Running Balance |
+| ----------- | ----- | --------------- |
+| T1          | +100  | 100             |
+| T2          | -30   | 70              |
+| T3          | +50   | 120             |
+
+**Why it reduces contention:**
+
+- Appends almost never conflict (append-only semantics)
+- No read-modify-write race conditions
+- Entire history is immutable audit trail
+- Balance is eventually consistent but safe
+
+---
+
+## E. Partitioning and Sharding
+
+Reduce collision domain by dividing responsibility:
+
+**Instead of:**
+
+```
+global account balance table
+```
+
+**Shard by:**
+
+- Customer ID
+- Geographic region
+- Account type
+- Merchant category
+
+**Effect:**
+
+- Different shards operate independently
+- Conflicts localized to one shard
+- Shard-level contention far lower than global
+- Horizontal scaling becomes possible
+
+---
+
+## F. Queues Instead of Free Concurrency
+
+Replace unbounded concurrent access with controlled processing:
+
+**Instead of:**
+
+```
+all requests hit database simultaneously
+  → severe contention
+  → high abort rates
+  → cascading failures
+```
+
+**Use:**
+
+```
+request queue
+  → partitioned by business key
+  → bounded processing rate
+  → backpressure naturally applied
+```
+
+Systems like Kafka, RabbitMQ, and Apache Pulsar are critical for this architecture because they provide:
+
+- Ordered processing per partition
+- Natural rate limiting
+- Failure isolation
+- Replayability
+
+---
+
+## G. Idempotent Operations and Deduplication
+
+High-concurrency systems assume retries will happen. Prepare for them:
+
+**Instead of:**
+
+```
+transfer_id = random()
+withdraw from source  (might fail and retry)
+```
+
+**Do:**
+
+```
+transfer_id = UUID (deterministic or provided by caller)
+
+operation: {
+  id: transfer_id,
+  source_account: 123,
+  amount: 100
+}
+
+database tracks seen transfer_ids
+  → prevents duplicate execution on retry
+```
+
+Every operation must be:
+
+- Idempotent (safe to replay)
+- Uniquely identified (deduplicatable)
+- Safely retryable (no side effects outside transaction)
+
+This is **essential** for exactly-once semantics in distributed systems.
+
+---
+
+## H. Serializable Isolation Only Where Necessary
+
+Full serializability everywhere is expensive. High-concurrency systems mix approaches:
+
+| Workflow Type            | Isolation Level       | Reasoning                                           |
+| ------------------------ | --------------------- | --------------------------------------------------- |
+| Critical ledger movement | Serializable          | Must be correct; cost acceptable                    |
+| Account balance checks   | Snapshot isolation    | Eventual consistency acceptable; no race conditions |
+| Analytics/reporting      | Read committed        | Old data okay; minimal locks needed                 |
+| Notifications            | Eventually consistent | Order doesn't matter; speed over correctness        |
+| Search indexing          | Eventually consistent | Stale results acceptable                            |
+
+**Key insight:**
+
+> Different transactions need different guarantees. Use serializability surgically.
+
+---
+
+## Architectural Pattern: High-Scale Financial Systems
+
+Conceptually, systems handling billions of operations resemble:
+
+```
+partitioned append-only event logs
+  +
+single-writer ownership per entity
+  +
+idempotent command deduplication
+  +
+event sourcing for derived state
+  +
+careful serializability boundaries
+  +
+queue-based rate limiting
+```
+
+**NOT:**
+
+```
+massive shared mutable tables
+  with global contention
+  and optimistic retry loops
+```
+
+Examples in production:
+
+- **Stripe, Square**: Event-sourced transaction logs per merchant
+- **Financial institutions**: Partitioned ledger systems
+- **Booking platforms**: Actor-model for inventory per property
+- **Message brokers**: Single-writer per partition topic
+
+---
+
+## Decision: When to Apply Each Pattern
+
+| Pattern                 | Best For                      | Trade-off                                |
+| ----------------------- | ----------------------------- | ---------------------------------------- |
+| Single-writer ownership | High-frequency entity updates | Must coordinate across entities          |
+| Partitioning            | Scaling hot data              | Cross-partition transactions expensive   |
+| Event sourcing          | Audit + temporal queries      | Storage overhead, eventual consistency   |
+| Queuing                 | Rate limiting + backpressure  | Latency increase, operational complexity |
+| Idempotent ops          | Failure resilience            | Deduplication storage + logic            |
+| Mix isolation levels    | Cost optimization             | Consistency complexity, harder reasoning |
 
 ---
 
@@ -493,14 +781,13 @@ If any part of a transaction fails (crash, network issue, constraint violation),
 
 The system must end either:
 
-- in the state *before* the transaction, or
-- in the state *after* it,
-but never an in-between state.
+- in the state _before_ the transaction, or
+- in the state _after_ it,
+  but never an in-between state.
 
 Without atomicity, partial updates lead to inconsistent data and unsafe retries.
 
 > Atomicity = ability to abort and roll back completely.
-> 
 
 ---
 
@@ -524,7 +811,6 @@ Important notes:
 - Some constraints (FK, uniqueness) help, but domain logic is your responsibility.
 
 > Consistency is an application-level property, not a database property.
-> 
 
 ---
 
@@ -535,7 +821,6 @@ Isolation ensures that transactions **do not interfere with each other**, even w
 Ideal target: **serializability**
 
 > The final result is the same as if all transactions ran sequentially (one after another).
-> 
 
 In practice:
 
@@ -566,7 +851,6 @@ Durability is not perfect:
 - Backups may carry corrupted data
 
 > Durability reduces risk — no system can provide absolute guarantees.
-> 
 
 ---
 
@@ -600,8 +884,8 @@ Durability is not perfect:
 
 - Databases (Oracle, PostgreSQL, SQL Server, etc.) usually use **row-level locks** to prevent dirty writes.
 - To prevent dirty reads, most use **multi-version concurrency control (MVCC)**:
-    - Keeps both the old committed value and the new uncommitted one.
-    - Readers see the old value until the write commits.
+  - Keeps both the old committed value and the new uncommitted one.
+  - Readers see the old value until the write commits.
 - Avoids performance issues caused by read locks blocking transactions.
 
 ---
@@ -611,7 +895,7 @@ Durability is not perfect:
 ### Problem with Read Committed
 
 - Can cause **nonrepeatable reads (read skew)** — data may be inconsistent across queries.
-    - **Example:** in-progress transfer shows $400 and $500 totaling $900 instead of $1000.
+  - **Example:** in-progress transfer shows $400 and $500 totaling $900 instead of $1000.
 
 ---
 
@@ -619,9 +903,9 @@ Durability is not perfect:
 
 - Each transaction reads from a **consistent snapshot** of the database.
 - Prevents read skew during:
-    - Backups
-    - Analytics
-    - Integrity checks
+  - Backups
+  - Analytics
+  - Integrity checks
 - Supported by PostgreSQL, MySQL (InnoDB), Oracle, SQL Server, etc.
 - Principle: **“Readers never block writers, and writers never block readers.”**
 
@@ -630,12 +914,12 @@ Durability is not perfect:
 ### Implementation via MVCC
 
 - Database stores **multiple versions** of each object:
-    - `created_by` and `deleted_by` transaction IDs
-    - Updates behave like delete + insert
+  - `created_by` and `deleted_by` transaction IDs
+  - Updates behave like delete + insert
 - Visibility rules:
-    1. Ignore in-progress/aborted transactions
-    2. Ignore transactions that started later
-    3. Show only data committed before snapshot
+  1. Ignore in-progress/aborted transactions
+  2. Ignore transactions that started later
+  3. Show only data committed before snapshot
 
 ---
 
@@ -696,9 +980,7 @@ Supported by:
 - PostgreSQL (repeatable read)
 - Oracle (serializable)
 - SQL Server (snapshot)
-    
-    Not supported by:
-    
+  Not supported by:
 - MySQL/InnoDB
 
 ---
@@ -743,26 +1025,26 @@ Example: both doctors go off call → no doctor left.
 
 1. Serializable isolation
 2. Explicit locking:
-    
-    ```sql
-    SELECT * FROM doctors
-    WHERE on_call = true
-    FOR UPDATE;
-    
-    ```
-    
+
+   ```sql
+   SELECT * FROM doctors
+   WHERE on_call = true
+   FOR UPDATE;
+
+   ```
+
 3. Materialized conflict tables
 
 ---
 
 ### Common Scenarios
 
-| Scenario | Anomaly |
-| --- | --- |
-| Meeting room booking | Double booking |
-| Multiplayer game | Two pieces to same tile |
-| Username claim | Duplicate username |
-| Double spending | Overdraw |
+| Scenario             | Anomaly                 |
+| -------------------- | ----------------------- |
+| Meeting room booking | Double booking          |
+| Multiplayer game     | Two pieces to same tile |
+| Username claim       | Duplicate username      |
+| Double spending      | Overdraw                |
 
 ---
 
@@ -781,11 +1063,11 @@ Example: both doctors go off call → no doctor left.
 - Strongest isolation level
 - Ensures **serial equivalence** even with concurrency
 - Prevents:
-    - Dirty reads
-    - Dirty writes
-    - Lost updates
-    - Write skew
-    - Phantoms
+  - Dirty reads
+  - Dirty writes
+  - Lost updates
+  - Write skew
+  - Phantoms
 
 ---
 
@@ -860,13 +1142,11 @@ Example: both doctors go off call → no doctor left.
 
 ## Summary Table
 
-| Isolation Level | Dirty Reads | Dirty Writes | Read Skew | Lost Updates | Write Skew | Implementation |
-| --- | --- | --- | --- | --- | --- | --- |
-| Read Committed | Prevented | Prevented | ❌ | ❌ | ❌ | Locks / MVCC |
-| Snapshot Isolation | Prevented | Prevented | Prevented | ⚠️ Sometimes | ❌ | MVCC |
-| Serializable | Prevented | Prevented | Prevented | Prevented | Prevented | Serial / 2PL / SSI |
-
-
+| Isolation Level    | Dirty Reads | Dirty Writes | Read Skew | Lost Updates | Write Skew | Implementation     |
+| ------------------ | ----------- | ------------ | --------- | ------------ | ---------- | ------------------ |
+| Read Committed     | Prevented   | Prevented    | ❌        | ❌           | ❌         | Locks / MVCC       |
+| Snapshot Isolation | Prevented   | Prevented    | Prevented | ⚠️ Sometimes | ❌         | MVCC               |
+| Serializable       | Prevented   | Prevented    | Prevented | Prevented    | Prevented  | Serial / 2PL / SSI |
 
 ---
 
@@ -891,14 +1171,14 @@ All locks are:
 
 ## 🔐 Lock Types (simplified)
 
-| Lock | Meaning |
-| --- | --- |
-| IS | Intent Shared |
-| IX | Intent Exclusive |
-| S | Shared (read) |
-| X | Exclusive (write) |
+| Lock | Meaning           |
+| ---- | ----------------- |
+| IS   | Intent Shared     |
+| IX   | Intent Exclusive  |
+| S    | Shared (read)     |
+| X    | Exclusive (write) |
 
-Intent locks signal *future* lower-level locks.
+Intent locks signal _future_ lower-level locks.
 
 ---
 
@@ -906,28 +1186,28 @@ Intent locks signal *future* lower-level locks.
 
 ### 📄 Document & CRUD Operations
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| `find()` | Collection | IS | While reading | Uses snapshot; no blocking |
-| `findOne()` | Collection | IS | While reading | Same as `find()` |
-| `insertOne()` | Collection + Document | IX + X | During insert | Short |
-| `updateOne()` | Document | X | During update | Auto-retried |
-| `updateMany()` | Documents | X (per doc) | Per doc | No table lock |
-| `deleteOne()` | Document | X | During delete |  |
-| `deleteMany()` | Documents | X (per doc) | Per doc |  |
-| `findOneAndUpdate()` | Document | X | During op | Atomic |
+| Operation            | Lock Scope            | Lock Mode   | Duration      | Notes                      |
+| -------------------- | --------------------- | ----------- | ------------- | -------------------------- |
+| `find()`             | Collection            | IS          | While reading | Uses snapshot; no blocking |
+| `findOne()`          | Collection            | IS          | While reading | Same as `find()`           |
+| `insertOne()`        | Collection + Document | IX + X      | During insert | Short                      |
+| `updateOne()`        | Document              | X           | During update | Auto-retried               |
+| `updateMany()`       | Documents             | X (per doc) | Per doc       | No table lock              |
+| `deleteOne()`        | Document              | X           | During delete |                            |
+| `deleteMany()`       | Documents             | X (per doc) | Per doc       |                            |
+| `findOneAndUpdate()` | Document              | X           | During op     | Atomic                     |
 
 ---
 
 ### 🔁 Transactions
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| Transaction start | None | — | — | No lock yet |
-| Write in transaction | Document | X | **Until commit/abort** | Key difference |
-| Read in transaction | Collection | IS | While reading | Snapshot isolation |
-| Commit | Global + affected docs | X (brief) | Very short | Metadata update |
-| Abort | Affected docs | X | Very short | Rollback |
+| Operation            | Lock Scope             | Lock Mode | Duration               | Notes              |
+| -------------------- | ---------------------- | --------- | ---------------------- | ------------------ |
+| Transaction start    | None                   | —         | —                      | No lock yet        |
+| Write in transaction | Document               | X         | **Until commit/abort** | Key difference     |
+| Read in transaction  | Collection             | IS        | While reading          | Snapshot isolation |
+| Commit               | Global + affected docs | X (brief) | Very short             | Metadata update    |
+| Abort                | Affected docs          | X         | Very short             | Rollback           |
 
 ⚠️ **Important**
 
@@ -937,57 +1217,57 @@ Transactional writes **hold document locks longer** than normal writes.
 
 ### 📚 Index Operations
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| Index read | Index entry | S | While reading |  |
-| Index write | Index entry | X | During update |  |
-| Index build (foreground) | Collection | X | Entire build | Blocking |
-| Index build (background) | Collection + Index | IX/X | Intermittent | Online build |
-| TTL index delete | Document | X | During delete | Background job |
+| Operation                | Lock Scope         | Lock Mode | Duration      | Notes          |
+| ------------------------ | ------------------ | --------- | ------------- | -------------- |
+| Index read               | Index entry        | S         | While reading |                |
+| Index write              | Index entry        | X         | During update |                |
+| Index build (foreground) | Collection         | X         | Entire build  | Blocking       |
+| Index build (background) | Collection + Index | IX/X      | Intermittent  | Online build   |
+| TTL index delete         | Document           | X         | During delete | Background job |
 
 ---
 
 ### 🧱 Collection / Database DDL
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| `createCollection()` | Database | X | Brief |  |
-| `dropCollection()` | Collection | X | Until complete | Blocking |
-| `renameCollection()` | DB + Collection | X | Until complete | Blocking |
-| `createIndex()` | Collection | IX/X | During build | Depends on mode |
-| `collMod()` | Collection | X | Brief |  |
+| Operation            | Lock Scope      | Lock Mode | Duration       | Notes           |
+| -------------------- | --------------- | --------- | -------------- | --------------- |
+| `createCollection()` | Database        | X         | Brief          |                 |
+| `dropCollection()`   | Collection      | X         | Until complete | Blocking        |
+| `renameCollection()` | DB + Collection | X         | Until complete | Blocking        |
+| `createIndex()`      | Collection      | IX/X      | During build   | Depends on mode |
+| `collMod()`          | Collection      | X         | Brief          |                 |
 
 ---
 
 ### 🧑‍💼 Administrative Operations
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| `compact` | Collection | X | Long | Blocking |
-| `fsyncLock` | Global | X | Until unlock | Very blocking |
-| `fsyncUnlock` | Global | — | — | Releases |
-| `shutdown` | Global | X | Until stop |  |
-| `replSetStepDown` | Global | X | Short | Elections |
+| Operation         | Lock Scope | Lock Mode | Duration     | Notes         |
+| ----------------- | ---------- | --------- | ------------ | ------------- |
+| `compact`         | Collection | X         | Long         | Blocking      |
+| `fsyncLock`       | Global     | X         | Until unlock | Very blocking |
+| `fsyncUnlock`     | Global     | —         | —            | Releases      |
+| `shutdown`        | Global     | X         | Until stop   |               |
+| `replSetStepDown` | Global     | X         | Short        | Elections     |
 
 ---
 
 ### 🔄 Replication & Background
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| Oplog apply | Document | X | Per op | Secondaries |
-| Initial sync | Collection | IX/X | Long | Read-heavy |
-| Checkpoint | Global | IS | Very brief | WiredTiger |
+| Operation    | Lock Scope | Lock Mode | Duration   | Notes       |
+| ------------ | ---------- | --------- | ---------- | ----------- |
+| Oplog apply  | Document   | X         | Per op     | Secondaries |
+| Initial sync | Collection | IX/X      | Long       | Read-heavy  |
+| Checkpoint   | Global     | IS        | Very brief | WiredTiger  |
 
 ---
 
 ### 🧹 Maintenance / Background Jobs
 
-| Operation | Lock Scope | Lock Mode | Duration | Notes |
-| --- | --- | --- | --- | --- |
-| TTL cleanup | Document | X | Per delete | Periodic |
-| Journal flush | Global | IS | Microseconds |  |
-| Cache eviction | None | — | — | Lock-free |
+| Operation      | Lock Scope | Lock Mode | Duration     | Notes     |
+| -------------- | ---------- | --------- | ------------ | --------- |
+| TTL cleanup    | Document   | X         | Per delete   | Periodic  |
+| Journal flush  | Global     | IS        | Microseconds |           |
+| Cache eviction | None       | —         | —            | Lock-free |
 
 ---
 
@@ -998,7 +1278,6 @@ Transactional writes **hold document locks longer** than normal writes.
 MongoDB **never says**:
 
 > “This document is locked”
-> 
 
 Even when it is.
 

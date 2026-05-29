@@ -508,7 +508,101 @@ hash(156) % 3 = 2 → Shard 3
 
 - ❌ **Scaling problem**: Adding/removing shards requires rehashing all keys (expensive)
 - ❌ Range queries are inefficient (records span multiple shards)
-- ❌ Requires consistent hashing to minimize redistribution
+
+---
+
+### 2.5 **Consistent Hashing** (Solves Hash-Based Scaling)
+
+**Problem:** With simple hash-based sharding (`hash(key) % num_shards`), adding or removing shards requires rehashing **all keys**. Consistent hashing solves this by minimizing key redistribution.
+
+#### How Consistent Hashing Works
+
+1. **Hash both keys and shards** onto a ring (0 to 2^32 - 1)
+2. **Walk clockwise** from key to find the nearest shard
+3. Adding/removing a shard only affects keys in a **narrow range**
+
+**Example: 3 shards on a ring**
+
+```
+         Shard A (hash = 10)
+              ↑
+    Key K3 → |
+            /
+    ────────     ────────
+   /              \
+  |                | Shard B (hash = 140)
+  | Key K1 (95)  →|
+   \                /
+    ──────────────
+       ↑
+   Shard C (hash = 240)
+   ← Key K2 (200)
+```
+
+**Distribution:**
+
+- K1 (95) → nearest shard clockwise → Shard B
+- K2 (200) → nearest shard clockwise → Shard C
+- K3 (350) → nearest shard clockwise → Shard A
+
+#### Adding a Shard (Minimal Redistribution)
+
+**Before:** 3 shards (A, B, C)
+**After:** Adding Shard D (hash = 180)
+
+Only keys between Shard B (140) and Shard D (180) are remapped. Other keys remain on their original shards!
+
+**Rehash cost:** ~N/num_shards keys (vs. rehashing all N keys with simple hashing)
+
+#### Virtual Nodes (Improves Balance)
+
+Map each physical shard to multiple points on the ring to reduce hotspots.
+
+```ts
+const ring = new Map<number, string>(); // hash → shard_id
+
+// Create 150 virtual nodes per shard
+for (const shard of shards) {
+  for (let i = 0; i < 150; i++) {
+    const hash = hashFunction(`${shard}#${i}`);
+    ring.set(hash, shard);
+  }
+}
+
+// Find shard for key
+function findShard(key: string): string {
+  const keyHash = hashFunction(key);
+  const shardHashes = Array.from(ring.keys()).sort((a, b) => a - b);
+
+  // Find first hash >= keyHash, or wrap around to first
+  for (const h of shardHashes) {
+    if (h >= keyHash) return ring.get(h)!;
+  }
+  return ring.get(shardHashes[0])!;
+}
+```
+
+#### Advantages of Consistent Hashing
+
+| Aspect             | Benefit                                                            |
+| ------------------ | ------------------------------------------------------------------ |
+| **Scaling**        | Adding/removing shards redistributes ~1/N keys (not all)           |
+| **Caching**        | Works well for distributed caches (Memcached, Redis)               |
+| **Load balancing** | Fairly distributes load across shards                              |
+| **Flexibility**    | Shards can have different capacities (weighted consistent hashing) |
+
+#### Disadvantages
+
+- ❌ Implementation complexity (need hash ring, virtual nodes)
+- ❌ Still no range query support (like simple hash sharding)
+- ❌ Data rebalancing still happens (though minimized)
+
+#### Use Cases
+
+✅ **Distributed caches** (Memcached, Redis clusters)
+✅ **Database sharding** (when adding shards frequently)
+✅ **Load balancing** (distributing requests across servers)
+✅ **CDN/blob storage** (distributing files across datacenters)
 
 ---
 
@@ -730,8 +824,6 @@ Most production systems combine both:
 
 ## In-memory vs on-disk structures
 
-## In-memory vs on-disk structures
-
 | **Characteristic**        | **In-Memory**                                                                                                  | **On-Disk**                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **Access speed**          | Nanoseconds                                                                                                    | Milliseconds (HDD) / Microseconds (SSD)                                                                  |
@@ -757,5 +849,242 @@ Most production systems combine both:
 ![image.png](../assets/miscellaneous/joins.png)
 
 SQL JOINs are fundamental operations for combining data from multiple tables in relational queries. Different join types (INNER, LEFT, RIGHT, FULL, CROSS) determine which rows are included in the result set based on matching conditions between tables.
+
+---
+
+# Pagination Patterns
+
+When datasets become large, APIs should return data in chunks instead of loading everything at once.
+
+The 2 main strategies are:
+
+1. Offset pagination
+2. Cursor/Keyset pagination
+
+---
+
+# 1. Offset Pagination
+
+Uses:
+
+```sql id="fe8j4n"
+LIMIT x OFFSET y
+```
+
+Example:
+
+```sql id="csy3xp"
+SELECT *
+FROM users
+ORDER BY created_at DESC
+LIMIT 10 OFFSET 50;
+```
+
+Meaning:
+
+- skip 50 rows
+- return next 10
+
+---
+
+## API Example
+
+```http id="gtp3h2"
+GET /users?page=6&limit=10
+```
+
+---
+
+## Advantages
+
+- Simple
+- Supports page numbers
+- Allows random access
+- Easy for admin dashboards
+
+---
+
+## Problems
+
+Large offsets become slow:
+
+```text id="7b8qoj"
+OFFSET 1000000
+```
+
+The database still scans/skips rows internally.
+
+Also inconsistent with live data:
+
+- inserts cause duplicates
+- deletes cause gaps
+
+---
+
+## Best for
+
+- small/medium datasets
+- admin UIs
+- traditional pagination
+
+---
+
+# 2. Cursor / Keyset Pagination
+
+Instead of positions, pagination continues from a key.
+
+Example:
+
+```sql id="hzvbqw"
+SELECT *
+FROM users
+WHERE id > 100
+ORDER BY id
+LIMIT 10;
+```
+
+Meaning:
+
+> “give me rows after ID 100”
+
+---
+
+## API Example
+
+```http id="e1n6si"
+GET /users?cursor=abc123
+```
+
+The cursor usually contains:
+
+```json id="c9xms5"
+{
+  "last_id": 100
+}
+```
+
+encoded as an opaque token.
+
+---
+
+## Advantages
+
+- Very fast on large datasets
+- Uses index seek instead of scan+skip
+- Stable with inserts/deletes
+- Excellent for feeds and infinite scroll
+
+---
+
+## Problems
+
+- No real page numbers
+- Sequential navigation
+- Requires stable unique ordering
+
+Bad:
+
+```sql id="j2q3b1"
+ORDER BY created_at
+```
+
+Better:
+
+```sql id="9r4t6v"
+ORDER BY created_at, id
+```
+
+---
+
+# Keyset vs Cursor
+
+These terms are related but not identical.
+
+## Keyset
+
+Database access pattern:
+
+```sql id="bfx6qm"
+WHERE id > 100
+```
+
+---
+
+## Cursor
+
+API mechanism:
+
+```http id="ngbr1h"
+?cursor=abc123
+```
+
+The cursor usually stores the keyset internally.
+
+---
+
+# Comparison Table
+
+| Aspect                        | Offset           | Cursor/Keyset          |
+| ----------------------------- | ---------------- | ---------------------- |
+| Performance on large datasets | Poor             | Excellent              |
+| Random page access            | ✅ Yes           | ❌ No                  |
+| Consistency with live updates | ❌ Weak          | ✅ Strong              |
+| Easy to implement             | ✅ Yes           | ⚠️ Moderate            |
+| Infinite scroll / feeds       | ❌ Poor          | ✅ Excellent           |
+| Supports page numbers         | ✅ Yes           | ❌ No                  |
+| Best dataset size             | Small/medium     | Large                  |
+| Typical use case              | Admin dashboards | APIs, feeds, timelines |
+
+---
+
+# Decision Framework
+
+## Use Offset when:
+
+- users think in page numbers
+- random access matters
+- dataset is not huge
+- slight inconsistencies are acceptable
+
+Typical examples:
+
+- admin panels
+- reporting UIs
+- backoffice systems
+
+---
+
+## Use Cursor/Keyset when:
+
+- performance matters
+- dataset is large
+- data changes frequently
+- building feeds or infinite scroll
+- consistency matters
+
+Typical examples:
+
+- social feeds
+- timelines
+- logs/events
+- public APIs
+
+---
+
+# Rule of Thumb
+
+## Offset
+
+```text id="v7l0vh"
+"Go to page 20"
+```
+
+---
+
+## Cursor/Keyset
+
+```text id="e3xyfw"
+"Continue after this item"
+```
 
 ---
