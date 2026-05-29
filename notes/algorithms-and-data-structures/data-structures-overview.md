@@ -33,21 +33,30 @@ All implement FIFO semantics, but with different memory behavior and operational
 
 ### Quick Reference
 
-| Structure        | File                                                     | Mechanism                                                                 |  insert / add  | remove / poll  | lookup / peek | Space  | Key Use Cases                                                    |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- | :------------: | :------------: | :-----------: | :----: | ---------------------------------------------------------------- |
-| **MinHeap**      | [heap/min-heap](../../structures/heap/min-heap/index.ts) | Array-backed complete binary tree; insert → bubble up, poll → bubble down |    O(log n)    |    O(log n)    |     O(1)      |  O(n)  | Priority queues, Dijkstra, Kth-smallest in stream, meeting rooms |
-| **MaxHeap**      | [heap/max-heap](../../structures/heap/max-heap/index.ts) | Array-backed complete binary tree; insert → bubble up, poll → bubble down |    O(log n)    |    O(log n)    |     O(1)      |  O(n)  | Keep k-smallest (gatekeeper), streaming median (lower half)      |
-| **Graph**        | [graph](../../structures/graph/index.ts)                 | Adjacency list (nested map: vertex → {neighbor → weight})                 |      O(1)      |     O(V+E)     |     O(1)      | O(V+E) | Network modelling, pathfinding, social graphs                    |
-| **Binary Tree**  | [tree](../../structures/tree/index.ts)                   | Linked nodes with left/right pointers; Queue for level-order insertion    |      O(n)      |      O(n)      |     O(n)      |  O(n)  | Hierarchical data, expression trees, level-order problems        |
-| **BST**          | [tree/bst](../../structures/tree/bst/index.ts)           | Binary tree enforcing left < node < right; no auto-balance                |  O(log n) avg  |  O(log n) avg  | O(log n) avg  |  O(n)  | Ordered data, range queries, symbol tables                       |
-| **AVL Tree**     | [tree/avl](../../structures/tree/avl/index.ts)           | BST + depth tracking; LL/RR rotations maintain balance factor ≤ 1         |    O(log n)    |    O(log n)    |   O(log n)    |  O(n)  | DB indexes, ordered maps, guaranteed O(log n) on BST ops         |
-| **Disjoint Set** | [disjoint-set](../../structures/disjoint-set/index.ts)   | parent[] + rank[] arrays; path compression + union by rank                |    O(α(n))     |       —        |    O(α(n))    |  O(n)  | Connected components, Kruskal's MST, cycle detection             |
-| **Linked List**  | [linked-list](../../structures/linked-list/index.ts)     | Doubly-linked nodes (val, next, prev); head + tail pointers               | O(1) head/tail | O(1) head/tail |     O(n)      |  O(n)  | LRU cache, deque operations, order-sensitive collections         |
-| **Stack**        | [stack](../../structures/stack/index.ts)                 | JS array; LIFO access via push/pop at end                                 |      O(1)      |      O(1)      |     O(1)      |  O(n)  | Iterative DFS, undo/redo, expression parsing, backtracking       |
-| **Queue**        | [queue](../../structures/queue/index.ts)                 | JS array + head pointer; enqueue = push, dequeue = arr[head++] (no shift) |      O(1)      |      O(1)      |     O(1)      |  O(n)  | BFS, level-order traversal, task scheduling                      |
-| **Hash Table**   | [hash-table](../../structures/hash-table/index.ts)       | Two parallel arrays + linear probing; hash = key % size                   |    O(1) avg    |    O(1) avg    |   O(1) avg    |  O(n)  | Frequency counting, caching, deduplication, fast lookup          |
+| Structure        | File                                                     | Mechanism                                                                 |  insert / add  | remove / poll  | lookup / peek | Space  | Key Use Cases                                                                            |
+| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- | :------------: | :------------: | :-----------: | :----: | ---------------------------------------------------------------------------------------- |
+| **MinHeap**      | [heap/min-heap](../../structures/heap/min-heap/index.ts) | Array-backed complete binary tree; insert → bubble up, poll → bubble down |    O(log n)    |    O(log n)    |     O(1)      |  O(n)  | Priority queues, Dijkstra, Kth-smallest in stream, meeting rooms                         |
+| **MaxHeap**      | [heap/max-heap](../../structures/heap/max-heap/index.ts) | Array-backed complete binary tree; insert → bubble up, poll → bubble down |    O(log n)    |    O(log n)    |     O(1)      |  O(n)  | Keep k-smallest (gatekeeper), streaming median (lower half)                              |
+| **Graph**        | [graph](../../structures/graph/index.ts)                 | Adjacency list (nested map: vertex → {neighbor → weight})                 |      O(1)      |     O(V+E)     |     O(1)      | O(V+E) | Network modelling, pathfinding, social graphs                                            |
+| **Binary Tree**  | [tree](../../structures/tree/index.ts)                   | Linked nodes with left/right pointers; Queue for level-order insertion    |      O(n)      |      O(n)      |     O(n)      |  O(n)  | Hierarchical data, expression trees, level-order problems                                |
+| **BST**          | [tree/bst](../../structures/tree/bst/index.ts)           | Binary tree enforcing left < node < right; no auto-balance                |  O(log n) avg  |  O(log n) avg  | O(log n) avg  |  O(n)  | Ordered data, range queries, symbol tables                                               |
+| **AVL Tree**     | [tree/avl](../../structures/tree/avl/index.ts)           | BST + depth tracking; LL/RR rotations maintain balance factor ≤ 1         |    O(log n)    |    O(log n)    |   O(log n)    |  O(n)  | DB indexes, ordered maps, guaranteed O(log n) on BST ops                                 |
+| **Disjoint Set** | [disjoint-set](../../structures/disjoint-set/index.ts)   | parent[] + rank[] arrays; path compression + union by rank                |    O(α(n))     |       —        |    O(α(n))    |  O(n)  | Connected components, Kruskal's MST, cycle detection                                     |
+| **Linked List**  | [linked-list](../../structures/linked-list/index.ts)     | Doubly-linked nodes (val, next, prev); head + tail pointers               | O(1) head/tail | O(1) head/tail |     O(n)      |  O(n)  | LRU/LFU caches (see [caching strategies](caching-strategies.md)), deque, order-sensitive |
+| **Stack**        | [stack](../../structures/stack/index.ts)                 | JS array; LIFO access via push/pop at end                                 |      O(1)      |      O(1)      |     O(1)      |  O(n)  | Iterative DFS, undo/redo, expression parsing, backtracking                               |
+| **Queue**        | [queue](../../structures/queue/index.ts)                 | JS array + head pointer; enqueue = push, dequeue = arr[head++] (no shift) |      O(1)      |      O(1)      |     O(1)      |  O(n)  | BFS, level-order traversal, task scheduling                                              |
+| **Hash Table**   | [hash-table](../../structures/hash-table/index.ts)       | Two parallel arrays + linear probing; hash = key % size                   |    O(1) avg    |    O(1) avg    |   O(1) avg    |  O(n)  | Frequency counting, caching, deduplication, fast lookup                                  |
 
 > α(n) = inverse Ackermann function — effectively O(1) for all practical inputs.
+
+### Caching Strategies
+
+The **Linked List** and **Hash Table** combine to form powerful caching data structures. See **[Caching Strategies: LRU & LFU](caching-strategies.md)** for comprehensive coverage of:
+
+- **LRU (Least Recently Used):** Evicts least-recently-accessed items; best for temporal locality (e.g., browser caches, page buffers)
+- **LFU (Least Frequently Used):** Evicts lowest-frequency items; best for stable, frequency-based workloads (e.g., API response caches, DNS caches)
+
+Both achieve O(1) Get/Put operations through Hash Map (key lookup) + Doubly Linked List (order tracking).
 
 ### Heap — Decision Framework
 
