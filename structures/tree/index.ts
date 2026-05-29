@@ -96,6 +96,7 @@ export class BinaryTree<T> {
     }
   }
 
+  // Pre-order DFS: Node → Left → Right
   traversePreOrder() {
     this.traversePreOrderHelper(this.root);
   }
@@ -111,6 +112,7 @@ export class BinaryTree<T> {
     this.traversePreOrderHelper(node.right);
   }
 
+  // In-order DFS: Left → Node → Right
   traverseInOrder() {
     this.traverseInOrderHelper(this.root);
   }
@@ -122,6 +124,7 @@ export class BinaryTree<T> {
     this.traverseInOrderHelper(node.right);
   }
 
+  // Post-order DFS: Left → Right → Node
   traversePostOrder() {
     this.traversePostOrderHelper(this.root);
   }
@@ -133,6 +136,7 @@ export class BinaryTree<T> {
     console.log(node.value);
   }
 
+  // BFS (Level-order): Level by level using Queue
   traverseLevelOrder() {
     if (!this.root) return;
 
