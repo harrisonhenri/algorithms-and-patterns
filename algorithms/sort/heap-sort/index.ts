@@ -1,17 +1,37 @@
-import { Heap } from "../../../structures/heap";
+import { MinHeap } from "../../../structures/heap/min-heap";
 import { timer } from "../../utils/timer";
 
 /**
- * Sorts the array with a O(nlgn) time complexity and O(1) space complexity using comparisons.
- * @date 21/06/2023 - 00:00:00
+ * Heap Sort algorithm - Sorts an array using a heap data structure.
+ *
+ * **Time Complexity:** O(n log n) in all cases (best, average, worst)
+ * **Space Complexity:** O(1) if using in-place heap, O(n) with separate result array
+ *
+ * **Key characteristics:**
+ * - Uses a min-heap or max-heap to efficiently extract sorted elements
+ * - Not stable (equal elements may not maintain original order)
+ * - Works by repeatedly extracting the min/max element
+ *
+ * **Why use Heap Sort:**
+ * - Guaranteed O(n log n) performance (unlike QuickSort which can degrade to O(n²))
+ * - Space-efficient when implemented in-place
+ * - Good for real-time systems needing predictable performance
+ *
+ * **Algorithm:**
+ * 1. Build a heap from the input array
+ * 2. Repeatedly extract the root (min/max) and place it in result
+ * 3. Restore heap property after each extraction
+ * 4. Continue until heap is empty
+ *
+ * @date 13/01/2026 - 00:00:00
  *
  */
 const heapSort = (array: number[]) => {
-  const minHeap = new Heap(array);
+  const minHeap = MinHeap.from(array);
 
   const result = [];
-  while (!minHeap.isEmpty()) {
-    result.push(minHeap.remove());
+  while (minHeap.size() > 0) {
+    result.push(minHeap.poll());
   }
 
   return result;
@@ -53,6 +73,6 @@ console.log(
       39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22,
       21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
       0,
-    ])
-  )
+    ]),
+  ),
 );

@@ -44,10 +44,12 @@ class ConcreteCreator2 extends Creator {
   }
 }
 
-console.log("App: Launched with the ConcreteCreator1.");
-const creator1 = new ConcreteCreator1();
-console.log(creator1.someOperation());
+if (require.main === module) {
+  console.log("App: Launched with the ConcreteCreator1.");
+  const creator1 = new ConcreteCreator1();
+  console.log(creator1.someOperation());
 
-console.log("App: Launched with the ConcreteCreator2.");
-const creator2 = new ConcreteCreator2();
-console.log(creator2.someOperation());
+  console.log("App: Launched with the ConcreteCreator2.");
+  const creator2 = new ConcreteCreator2();
+  console.log(creator2.someOperation());
+}
