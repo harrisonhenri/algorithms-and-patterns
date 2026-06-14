@@ -21,24 +21,22 @@ A compact interview guide focused on tradeoffs, not buzzwords. Use this as a dec
 
 ### CAP theorem (during partitions)
 
-When partitions happen, you usually choose between:
+**During network partitions, choose:** Consistency (reject requests) **or** Availability (serve stale data). See [consensus-and-replication.md#cap-theorem](./consensus-and-replication.md#cap-theorem) for detailed discussion.
 
-- **Consistency first (CP)**: reject some requests to avoid stale/wrong data
-- **Availability first (AP)**: keep serving, accept temporary divergence
+**Quick rule of thumb:**
 
-Rule of thumb:
-
-- Financial ledgers and coordination services lean CP
-- Social feeds and timeline reads often lean AP
+- **CP** (Consistency-first): Financial ledgers, coordination services → reject requests during partitions
+- **AP** (Availability-first): Social feeds, timelines → keep serving, accept temporary divergence
 
 ### PACELC (beyond partitions)
 
-- **P**artition: choose **A**vailability or **C**onsistency
-- **E**lse: choose **L**atency or **C**onsistency
-
-Even without failures, stronger consistency often adds latency.
+Extension of CAP: **P**artition (choose **A**vailability or **C**onsistency) **E**lse (choose **L**atency or **C**onsistency). See [consensus-and-replication.md#cap-theorem](./consensus-and-replication.md#cap-theorem) for detailed analysis.
 
 ### ACID vs BASE
+
+**ACID** prioritizes correctness; **BASE** prioritizes availability and performance. See [transactions-and-concurrency.md](./transactions-and-concurrency.md) for detailed coverage of ACID properties and consistency models.
+
+**Quick comparison:**
 
 | Model    | Best for                                   | Main tradeoff                                 |
 | -------- | ------------------------------------------ | --------------------------------------------- |
@@ -109,10 +107,13 @@ Partition data by a stable, high-cardinality key.
 
 ### Replication
 
+**See** [consensus-and-replication.md#linearizability-in-different-replication-models](./consensus-and-replication.md#linearizability-in-different-replication-models) **for detailed analysis of replication models and their consistency guarantees.**
+
 | Pattern             | Strength                        | Risk                             |
 | ------------------- | ------------------------------- | -------------------------------- |
 | **Primary-replica** | Simple write path, read scaling | Replica lag, failover complexity |
 | **Multi-primary**   | Regional write locality         | Conflict resolution complexity   |
+| **Leaderless**      | High availability               | Consistency challenges           |
 
 ### Indexing and write path
 
@@ -167,6 +168,8 @@ Deep dives:
 - **Rate limiting** (token bucket/leaky bucket) to control overload
 - **Circuit breaker** to avoid cascading failures
 - **Retries with exponential backoff + jitter** to smooth recovery behavior
+- **Prefer delayed retries** over immediate retries under failure storms to reduce synchronized retry spikes
+- **Timeout as an event** for long-running workflows (schedule timeout checks instead of periodic scans)
 
 Reference retry shape:
 
@@ -176,8 +179,8 @@ sleep = (2 ** attempt) + random.uniform(0, 1)
 
 ### Coordination and distributed workflows
 
-- **Leader election** (Raft-like systems) for single-writer/coordination safety
-- **SAGA** for cross-service transaction orchestration with compensating actions
+- **Leader election** — See [consensus-and-replication.md#consensus-algorithms](./consensus-and-replication.md#consensus-algorithms) for Raft-like systems achieving single-writer/coordination safety
+- **SAGA** — See [transactions-and-concurrency.md#saga-pattern](./transactions-and-concurrency.md#saga-pattern) for cross-service transaction orchestration with compensating actions
 
 ### Observability triad
 

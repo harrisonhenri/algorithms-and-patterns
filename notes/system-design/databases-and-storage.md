@@ -513,96 +513,7 @@ hash(156) % 3 = 2 → Shard 3
 
 ### 2.5 **Consistent Hashing** (Solves Hash-Based Scaling)
 
-**Problem:** With simple hash-based sharding (`hash(key) % num_shards`), adding or removing shards requires rehashing **all keys**. Consistent hashing solves this by minimizing key redistribution.
-
-#### How Consistent Hashing Works
-
-1. **Hash both keys and shards** onto a ring (0 to 2^32 - 1)
-2. **Walk clockwise** from key to find the nearest shard
-3. Adding/removing a shard only affects keys in a **narrow range**
-
-**Example: 3 shards on a ring**
-
-```
-         Shard A (hash = 10)
-              ↑
-    Key K3 → |
-            /
-    ────────     ────────
-   /              \
-  |                | Shard B (hash = 140)
-  | Key K1 (95)  →|
-   \                /
-    ──────────────
-       ↑
-   Shard C (hash = 240)
-   ← Key K2 (200)
-```
-
-**Distribution:**
-
-- K1 (95) → nearest shard clockwise → Shard B
-- K2 (200) → nearest shard clockwise → Shard C
-- K3 (350) → nearest shard clockwise → Shard A
-
-#### Adding a Shard (Minimal Redistribution)
-
-**Before:** 3 shards (A, B, C)
-**After:** Adding Shard D (hash = 180)
-
-Only keys between Shard B (140) and Shard D (180) are remapped. Other keys remain on their original shards!
-
-**Rehash cost:** ~N/num_shards keys (vs. rehashing all N keys with simple hashing)
-
-#### Virtual Nodes (Improves Balance)
-
-Map each physical shard to multiple points on the ring to reduce hotspots.
-
-```ts
-const ring = new Map<number, string>(); // hash → shard_id
-
-// Create 150 virtual nodes per shard
-for (const shard of shards) {
-  for (let i = 0; i < 150; i++) {
-    const hash = hashFunction(`${shard}#${i}`);
-    ring.set(hash, shard);
-  }
-}
-
-// Find shard for key
-function findShard(key: string): string {
-  const keyHash = hashFunction(key);
-  const shardHashes = Array.from(ring.keys()).sort((a, b) => a - b);
-
-  // Find first hash >= keyHash, or wrap around to first
-  for (const h of shardHashes) {
-    if (h >= keyHash) return ring.get(h)!;
-  }
-  return ring.get(shardHashes[0])!;
-}
-```
-
-#### Advantages of Consistent Hashing
-
-| Aspect             | Benefit                                                            |
-| ------------------ | ------------------------------------------------------------------ |
-| **Scaling**        | Adding/removing shards redistributes ~1/N keys (not all)           |
-| **Caching**        | Works well for distributed caches (Memcached, Redis)               |
-| **Load balancing** | Fairly distributes load across shards                              |
-| **Flexibility**    | Shards can have different capacities (weighted consistent hashing) |
-
-#### Disadvantages
-
-- ❌ Implementation complexity (need hash ring, virtual nodes)
-- ❌ Still no range query support (like simple hash sharding)
-- ❌ Data rebalancing still happens (though minimized)
-
-#### Use Cases
-
-✅ **Distributed caches** (Memcached, Redis clusters)
-✅ **Database sharding** (when adding shards frequently)
-✅ **Load balancing** (distributing requests across servers)
-✅ **CDN/blob storage** (distributing files across datacenters)
+For detailed treatment of consistent hashing — including the ring algorithm, virtual nodes, and Uber's Ringpop implementation — see [distributed-systems-algorithms.md#consistent-hashing](distributed-systems-algorithms.md#consistent-hashing).
 
 ---
 
@@ -660,6 +571,8 @@ Shard 3 (Asia): users in China, India, Japan
 ---
 
 ## ⚖️ Sharding vs. Replication
+
+For detailed analysis of replication models (Primary-replica, Multi-primary, Leaderless) and their consistency guarantees, see [consensus-and-replication.md#linearizability-in-different-replication-models](./consensus-and-replication.md#linearizability-in-different-replication-models).
 
 | Aspect            | Sharding                         | Replication                    |
 | ----------------- | -------------------------------- | ------------------------------ |

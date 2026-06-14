@@ -1,5 +1,10 @@
 /**
- * This pattern is used to add functionalities without change the classes.
+ * This pattern is used to add functionalities without change the classes. It also
+ * helps separate algorithms from the objects on which they operate.
+ * The visitor pattern is a way of separating an algorithm from an object
+ * structure on which it operates.
+ * A practical result of this separation is the ability to add new operations
+ * to existing object structures without modifying those structures.
  *
  * @date 21/06/2023 - 00:00:00
  *

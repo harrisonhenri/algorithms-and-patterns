@@ -21,6 +21,8 @@ Unlike local programs, distributed systems **cannot always distinguish** between
 - a lost packet
 - or a delayed response
 
+**See also:** [consensus-and-replication.md#system-models-and-theoretical-foundations](./consensus-and-replication.md#system-models-and-theoretical-foundations) for formal system models (Synchronous, Partially Synchronous, Asynchronous) and theoretical impossibility results.
+
 ---
 
 ## Single-Machine vs Distributed Systems
@@ -511,6 +513,93 @@ Stale leaders cannot corrupt state
 
 ---
 
+## Incarnation Numbers
+
+Incarnation numbers are monotonically increasing counters (separate from wall-clock time) that track the **generation** of a node or leader.
+
+### Problem It Solves
+
+When a node crashes and restarts:
+
+```
+Old leader:        token=5, incarnation=1, sends writes
+Network partition: (old leader isolated)
+New leader:        token=5, incarnation=2, claims authority
+
+Without incarnation numbers:
+  - Both have token=5
+  - Which one is the real leader?
+  - Corruption possible
+
+With incarnation numbers:
+  - Old leader: incarnation=1 → rejected
+  - New leader: incarnation=2 → accepted
+  - Clear ordering prevents confusion
+```
+
+### How It Works
+
+1. **Node starts:** `incarnation = 1`
+2. **Node crashes/restarts:** `incarnation = 2`
+3. **Becomes leader:** Increment incarnation before claiming leadership
+4. **Send commands:** Include incarnation with each operation
+5. **Replicas verify:** Only accept operations from highest incarnation
+
+### Use Cases
+
+- **Leadership transitions:** Distinguish old crashed leader from new leader
+- **Failure recovery:** After node restart, stale replicas reject old commands
+- **Lease renewal:** When renewing a lease after restart, increment incarnation
+- **Cluster membership:** Track node generations in gossip/SWIM protocols
+
+### Example
+
+```python
+class Node:
+  def __init__(self, node_id):
+    self.node_id = node_id
+    self.incarnation = 1
+    self.is_leader = False
+    
+  def recover_from_crash(self):
+    # Node restarted
+    self.incarnation += 1
+    self.is_leader = False
+    
+  def become_leader(self):
+    self.incarnation += 1
+    self.is_leader = True
+    self.current_token = (self.incarnation, time.monotonic())
+    # Broadcast leadership claim with new incarnation
+    
+  def send_write(self, data):
+    return {
+      "node_id": self.node_id,
+      "incarnation": self.incarnation,
+      "data": data,
+      "timestamp": time.time()
+    }
+
+# On the replica side
+def accept_write(write):
+  if write["incarnation"] < node.current_incarnation:
+    # Stale write from crashed leader
+    reject()
+  else:
+    accept()
+```
+
+### Comparison: Clocks, Tokens, Incarnation Numbers
+
+| Mechanism | Scope | Use Case | Problem Solved |
+|---|---|---|---|
+| **Time-of-day clocks** | Single machine | Scheduling, logging | Relies on external sync; can jump backward |
+| **Monotonic clocks** | Single machine | Measuring elapsed time | Immune to NTP adjustments; can't compare across machines |
+| **Fencing tokens** | System-wide | Distributed locks | Prevents stale leaders from corrupting state |
+| **Incarnation numbers** | Per-node | Leadership after restart | Distinguishes old leader from new after node recovery |
+
+---
+
 # Process Pauses and Garbage Collection
 
 ## Nodes May Pause Without Failing
@@ -618,67 +707,7 @@ Key principle:
 
 ## Membership Protocols (SWIM and Gossip)
 
-Membership protocols maintain cluster views and support failure detection at scale.
-
-### SWIM (Scalable Weakly-consistent Infection-style Membership)
-
-Core ideas:
-
-- Each node periodically probes a random peer
-- If direct probe fails, node asks indirect peers to probe (indirect ping)
-- Nodes spread membership updates using gossip
-- Failures move through states like **alive -> suspect -> dead**
-
-Why it works well:
-
-- Decentralized (no single coordinator)
-- Constant-size probing work per node per round
-- Scales to large clusters with bounded overhead
-
-Typical uses:
-
-- Service discovery and health membership in large fleets
-- Consul-style cluster membership
-
----
-
-### Gossip-Based Membership
-
-Gossip protocols disseminate membership state probabilistically:
-
-- Nodes periodically exchange partial views
-- Updates spread epidemically through the cluster
-- Convergence is eventually consistent
-
-Strengths:
-
-- Highly fault tolerant
-- Easy horizontal scale
-- Handles frequent node churn
-
-Trade-off:
-
-- Temporary view divergence is expected
-- Membership accuracy converges over time rather than instantly
-
-Examples:
-
-- Cassandra-style peer dissemination
-- Akka cluster membership dissemination
-
----
-
-### Comparison
-
-| Approach                      | Detection Model                                 | Overhead Pattern                                | Consistency of View                                    | Failure Mode Risk                                       |
-| ----------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
-| Centralized heartbeat manager | Single observer and heartbeat timeout           | Central bottleneck grows with cluster size      | Fast if manager healthy                                | Single point of failure and overload                    |
-| Generic gossip membership     | Probabilistic peer exchange                     | Distributed, typically moderate per round       | Eventual consistency                                   | Temporary divergence during churn                       |
-| SWIM-style membership         | Direct + indirect probes + gossip dissemination | Constant probing work per node + gossip updates | Eventual consistency with strong practical convergence | False suspicions still possible under severe partitions |
-
-Key takeaway:
-
-> **In distributed systems, membership is usually probabilistic and suspicion-based, not absolute truth.**
+For detailed treatment of membership protocols including SWIM, gossip-based dissemination, and comparisons, see [distributed-systems-algorithms.md#membership-protocols-swim-and-gossip](distributed-systems-algorithms.md#membership-protocols-swim-and-gossip).
 
 ---
 
@@ -746,70 +775,9 @@ Most distributed systems (databases, message brokers, cloud infrastructure) assu
 
 ---
 
-# System Models and Assumptions
+## System Models and Assumptions
 
-Different distributed systems are designed for different **failure models** and **timing assumptions**.
-
----
-
-## Synchronous Model
-
-Assumes:
-
-- **Bounded message delays** — messages arrive within max time D
-- **Bounded processing time** — nodes process messages within time P
-- **Bounded clock drift** — clocks drift by at most r
-
-Implications:
-
-- If no response within D+P+margin → node is definitely dead
-- Can implement reliable failure detection
-- Can guarantee safety properties
-
-Reality:
-
-- **Very strong assumptions**
-- **Rarely true in practice**
-- Real systems have unbounded delays
-
----
-
-## Partially Synchronous Model
-
-Most realistic model:
-
-- Usually behaves synchronously
-- Occasionally experiences:
-  - Long pauses
-  - Network partitions
-  - Extreme spikes in latency
-  - Unexpected delays
-
-Characteristics:
-
-- Most algorithms designed for this model
-- Assumes synchrony usually, but not always
-- Practical consensus algorithms (Raft, Paxos) work here
-
----
-
-## Asynchronous Model
-
-Assumes:
-
-- **No timing guarantees at all**
-- Messages can be arbitrarily delayed
-- Nodes can be arbitrarily slow
-
-Implications:
-
-- Impossible to reliably distinguish slow from dead
-- Cannot implement reliable failure detection
-- Many algorithms impossible to solve
-
-Famous result:
-
-> **FLP Impossibility Theorem** — Consensus is impossible in asynchronous systems with even one crash fault
+For detailed treatment of synchronous, partially synchronous, and asynchronous models — including implications and the FLP Impossibility Theorem — see [consensus-and-replication.md#system-models-and-theoretical-foundations](consensus-and-replication.md#system-models-and-theoretical-foundations).
 
 ---
 
@@ -874,7 +842,7 @@ Rationale:
 - Better to be consistent and unavailable
 - Users prefer "service down" to "wrong data"
 
----
+For comprehensive treatment of CAP theorem and partition scenarios, see [consensus-and-replication.md#cap-theorem](consensus-and-replication.md#cap-theorem). For split-brain prevention strategies, see [distributed-systems-algorithms.md#split-brain-scenarios](distributed-systems-algorithms.md#split-brain-scenarios).
 
 ---
 

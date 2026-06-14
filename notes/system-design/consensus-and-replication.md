@@ -16,6 +16,8 @@ title: "Consistency, consensus, and replication"
 
 Different distributed systems operate under different assumptions about timing and failures. These assumptions determine what's possible to guarantee.
 
+**See also:** [reliability-and-networking.md](reliability-and-networking.md) for detailed treatment of partial failures, network partitions, timeout challenges, and clock synchronization issues that motivate these system models.
+
 ---
 
 ## Synchronous Model

@@ -1,5 +1,15 @@
 ---
-tags: [javascript, nodejs, queuing, performance, monitoring, tuning, resource-limits, decision-tree]
+tags:
+  [
+    javascript,
+    nodejs,
+    queuing,
+    performance,
+    monitoring,
+    tuning,
+    resource-limits,
+    decision-tree,
+  ]
 title: "Queue Performance & Tuning: Monitoring and Resource Limits"
 domain: "language-mechanics"
 ---
@@ -14,21 +24,15 @@ Optimize queue performance, monitor health, and match concurrency limits to your
 
 ### Memory Usage by Package
 
-```ts
-// p-limit: ~1KB (just stores limit function)
-import pLimit from 'p-limit';
-const limit = pLimit(5); // negligible memory overhead
+| Package        | Base Size | Per-Task              | Use Case                   | Notes                                     |
+| -------------- | --------- | --------------------- | -------------------------- | ----------------------------------------- |
+| **p-limit**    | ~1 KB     | Negligible            | Simple concurrency control | Lightest option; direct function limiting |
+| **p-queue**    | ~10 KB    | 1–5 KB (closure size) | Full queue lifecycle       | Includes priority, events, pause/resume   |
+| **p-retry**    | ~2 KB     | Per attempt           | Retry logic                | Combines with other libraries             |
+| **p-timeout**  | ~500 B    | None                  | Timeout handling           | Minimal overhead                          |
+| **p-throttle** | ~1.5 KB   | Timestamp array       | Rate limiting              | Grows with time window size               |
 
-// p-queue: ~10KB base + task storage
-// WARNING: Each queued task consumes memory
-import PQueue from 'p-queue';
-const queue = new PQueue({ concurrency: 5 });
-// If you queue 100k tasks, expect 10MB+ in memory
-
-// p-retry: ~2KB (minimal state)
-// p-timeout: ~500B (just a timer)
-// p-throttle: ~1.5KB + timestamp array (grows with time windows)
-```
+**Example:** Queuing 100K tasks in p-queue = ~10 MB base + 100–500 MB task storage = **110–510 MB total**
 
 ### Practical Memory Estimation
 
@@ -44,16 +48,126 @@ setInterval(() => {
   const mem = process.memoryUsage();
   const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(2);
   const queueSize = queue.size;
-  
-  console.log(
-    `Queue: ${queueSize} tasks | Heap: ${heapMB}MB`
-  );
+
+  console.log(`Queue: ${queueSize} tasks | Heap: ${heapMB}MB`);
 
   if (queueSize > 50000) {
-    console.warn('Queue size critical! Reduce input rate.');
+    console.warn("Queue size critical! Reduce input rate.");
   }
 }, 5000);
 ```
+
+### Memory Calculation Heuristic
+
+```ts
+// Quick estimate for task memory
+const estimateMemoryUsage = (
+  queueSize: number,
+  taskMemoryKB: number,
+): string => {
+  const baseMemory = 10; // p-queue base (KB)
+  const totalMB = (baseMemory + queueSize * taskMemoryKB) / 1024;
+  return `${totalMB.toFixed(1)} MB`;
+};
+
+// Examples
+console.log(estimateMemoryUsage(1000, 2)); // ~2.0 MB
+console.log(estimateMemoryUsage(10000, 5)); // ~48.8 MB
+console.log(estimateMemoryUsage(100000, 1)); // ~97.7 MB
+```
+
+---
+
+## Mutex & Locks in JavaScript/Node.js
+
+Unlike traditional threads (Java, C++), JavaScript runs on a **single-threaded event loop**. However, in distributed systems, worker threads, and shared resources, mutual exclusion (locks) becomes necessary.
+
+### Why Mutex?
+
+| Scenario                           | Problem                                  | Solution                                    |
+| ---------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| **Shared State in Worker Threads** | Two workers access same in-memory object | Mutex prevents simultaneous modification    |
+| **Database Transactions**          | Race condition on read-modify-write      | Transaction locks or optimistic concurrency |
+| **Queue Task Deduplication**       | Multiple consumers process same item     | Mutex guards deduplication check            |
+| **Distributed Locks**              | Coordinating across services             | Redis, etcd, or database locks              |
+
+### Mutex vs Alternatives
+
+| Tool                            | Use Case                           | Mechanism                                |
+| ------------------------------- | ---------------------------------- | ---------------------------------------- |
+| **Mutex (async-lock)**          | Single-threaded coordination       | Prevents overlapping execution via await |
+| **Semaphore**                   | Resource pool limiting (N permits) | Allows N concurrent holders              |
+| **CAS / AtomicXXX**             | Lock-free compare-and-swap         | Optimistic; retry on conflict            |
+| **Redis SETNX**                 | Distributed locks                  | Key-based mutual exclusion               |
+| **Atomics (SharedArrayBuffer)** | Low-level synchronization          | Blocks thread on synchronous ops         |
+
+### Example: Mutex with async-lock
+
+```ts
+import Lock from "async-lock";
+
+const lock = new Lock();
+let criticalCounter = 0;
+
+// Multiple concurrent operations
+const tasks = [];
+for (let i = 0; i < 100; i++) {
+  tasks.push(
+    lock.acquire("resource", async () => {
+      // Only one task runs this at a time
+      const oldValue = criticalCounter;
+      await new Promise((r) => setTimeout(r, 10)); // Simulate I/O
+      criticalCounter = oldValue + 1;
+      console.log(`Incremented to ${criticalCounter}`);
+    }),
+  );
+}
+
+await Promise.all(tasks);
+console.log(`Final: ${criticalCounter}`); // 100 (not corrupted)
+```
+
+### Distributed Locks with Redis
+
+```ts
+import Redis from "ioredis";
+import Redlock from "redlock";
+
+const redis = new Redis();
+const redlock = new Redlock([redis], {
+  driftFactor: 0.01,
+  retryCount: 3,
+  retryDelay: 200,
+});
+
+// Acquire lock for critical section
+try {
+  const lock = await redlock.lock("my-resource", 1000); // 1 second TTL
+  try {
+    // Critical section — only one service at a time
+    await updateSharedDatabase();
+  } finally {
+    await lock.unlock().catch((err) => console.error(err));
+  }
+} catch (err) {
+  console.error("Failed to acquire lock:", err);
+}
+```
+
+### When to Use Mutex
+
+✅ **Use Mutex when:**
+
+- Coordinating worker threads or processes
+- Protecting in-memory critical sections
+- Single-threaded app with async I/O race conditions
+- Distributed system needs coordinated access
+
+❌ **Don't use Mutex for:**
+
+- Simple event sequencing (use channels/queues)
+- Immutable data (no protection needed)
+- Stateless operations (scale horizontally)
 
 ---
 
@@ -62,7 +176,7 @@ setInterval(() => {
 ### Real-Time Monitoring
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 const queue = new PQueue({ concurrency: 5 });
 
@@ -81,10 +195,10 @@ const monitor = setInterval(() => {
 
   // Alert conditions
   if (total > 1000) {
-    console.warn('⚠️  Queue backing up!');
+    console.warn("⚠️  Queue backing up!");
   }
   if (queued > total * 0.8) {
-    console.error('🔴 Most tasks waiting, consider reducing concurrency');
+    console.error("🔴 Most tasks waiting, consider reducing concurrency");
   }
 }, 1000);
 
@@ -96,7 +210,10 @@ queue.onIdle().then(() => clearInterval(monitor));
 
 ```ts
 class QueueHealth {
-  constructor(private queue: PQueue, private maxSize: number = 10000) {}
+  constructor(
+    private queue: PQueue,
+    private maxSize: number = 10000,
+  ) {}
 
   check() {
     const pending = this.queue.pending;
@@ -118,18 +235,18 @@ class QueueHealth {
   private getRecommendation(
     pending: number,
     queued: number,
-    total: number
+    total: number,
   ): string {
     if (total > this.maxSize * 0.9) {
-      return 'CRITICAL: Reduce input rate or increase concurrency';
+      return "CRITICAL: Reduce input rate or increase concurrency";
     }
     if (queued > total * 0.8) {
-      return 'WARNING: Queue backing up, consider increasing concurrency';
+      return "WARNING: Queue backing up, consider increasing concurrency";
     }
     if (pending === 0 && queued === 0) {
-      return 'OK: Queue idle';
+      return "OK: Queue idle";
     }
-    return 'OK: Queue healthy';
+    return "OK: Queue healthy";
   }
 }
 
@@ -148,9 +265,9 @@ setInterval(() => {
 ### By Resource Type
 
 ```ts
-import os from 'os';
-import pLimit from 'p-limit';
-import PQueue from 'p-queue';
+import os from "os";
+import pLimit from "p-limit";
+import PQueue from "p-queue";
 
 // 1️⃣ Network I/O (HTTP Requests)
 // Rule: API servers typically allow 100-500 concurrent per IP
@@ -161,7 +278,7 @@ const httpLimit = pLimit(5);
 // Rule: Connection pool size (usually 5-20)
 // Check: db.getPool().length
 const dbQueue = new PQueue({
-  concurrency: Math.min(15, process.env.DB_POOL_SIZE || 15)
+  concurrency: Math.min(15, process.env.DB_POOL_SIZE || 15),
 });
 
 // 3️⃣ CPU-Intensive Operations
@@ -188,7 +305,7 @@ const memLimit = pLimit(2); // Conservative for heavy tasks
 // 7️⃣ Image Processing / Sharp
 // Rule: Each operation uses significant memory/CPU
 // Safe default: 3-5
-import sharp from 'sharp';
+import sharp from "sharp";
 const imageLimit = pLimit(3);
 
 // 8️⃣ External Service Calls (Stripe, AWS, etc.)
@@ -209,7 +326,7 @@ interface ResourceLimits {
 }
 
 function calculateConcurrencyLimits(
-  resources: ResourceLimits
+  resources: ResourceLimits,
 ): Record<string, number> {
   return {
     // CPU: 1:1 concurrency with cores
@@ -238,7 +355,7 @@ const limits = calculateConcurrencyLimits({
   database: 20,
 });
 
-console.log('Recommended limits:', limits);
+console.log("Recommended limits:", limits);
 // { cpu: 4, memory: 160, disk: 50, network: 10, database: 15 }
 ```
 
@@ -249,7 +366,7 @@ console.log('Recommended limits:', limits);
 ### Adjusting Concurrency Dynamically
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 class AdaptiveQueue {
   private queue: PQueue;
@@ -269,16 +386,13 @@ class AdaptiveQueue {
         // Increase concurrency
         const newConcurrency = Math.min(
           concurrency + 1,
-          100 // Max limit
+          100, // Max limit
         );
         this.queue.concurrency = newConcurrency;
         console.log(`📈 Increased concurrency to ${newConcurrency}`);
       } else if (utilization < 0.5 && concurrency > 1) {
         // Decrease concurrency
-        const newConcurrency = Math.max(
-          Math.ceil(concurrency - 1),
-          1
-        );
+        const newConcurrency = Math.max(Math.ceil(concurrency - 1), 1);
         this.queue.concurrency = newConcurrency;
         console.log(`📉 Decreased concurrency to ${newConcurrency}`);
       }
@@ -305,15 +419,13 @@ await adaptiveQueue.onIdle();
 ### Backpressure: Pause Input When Queue Backs Up
 
 ```ts
-import PQueue from 'p-queue';
+import PQueue from "p-queue";
 
 class BackpressureQueue {
   private queue = new PQueue({ concurrency: 5 });
   private maxQueueSize = 1000;
 
-  async addWithBackpressure<T>(
-    fn: () => PromiseLike<T>
-  ): Promise<T> {
+  async addWithBackpressure<T>(fn: () => PromiseLike<T>): Promise<T> {
     // Wait if queue is full
     while (this.queue.size >= this.maxQueueSize) {
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -337,7 +449,7 @@ const queue = new BackpressureQueue();
 for (const item of items) {
   const stats = queue.getStats();
   if (stats.backpressure) {
-    console.log('Backpressure: pausing producer');
+    console.log("Backpressure: pausing producer");
   }
 
   await queue.addWithBackpressure(() => processItem(item));
@@ -394,8 +506,8 @@ for (const item of items) {
 ### Load Testing a Queue
 
 ```ts
-import PQueue from 'p-queue';
-import { performance } from 'perf_hooks';
+import PQueue from "p-queue";
+import { performance } from "perf_hooks";
 
 async function loadTest() {
   const queue = new PQueue({ concurrency: 5 });
@@ -417,7 +529,7 @@ async function loadTest() {
       try {
         // Simulate work: 10-100ms
         await new Promise((resolve) =>
-          setTimeout(resolve, Math.random() * 90 + 10)
+          setTimeout(resolve, Math.random() * 90 + 10),
         );
         successCount++;
       } catch (err) {
@@ -436,7 +548,7 @@ async function loadTest() {
   results.tasksPerSecond = testSize / durationSeconds;
   results.errorRate = (errorCount / testSize) * 100;
 
-  console.log('Load Test Results:');
+  console.log("Load Test Results:");
   console.log(`  Total time: ${results.totalTime.toFixed(2)}s`);
   console.log(`  Throughput: ${results.tasksPerSecond.toFixed(0)} tasks/s`);
   console.log(`  Error rate: ${results.errorRate.toFixed(2)}%`);
@@ -465,6 +577,6 @@ loadTest();
 ## Related
 
 - [Queuing Strategies Fundamentals](queuing-strategies.md) — p-limit, p-queue, batch processing basics
-- [Complete p-* Utilities Guide](p-utilities-complete-guide.md) — All individual p-* tools
+- [Complete p-\* Utilities Guide](p-utilities-complete-guide.md) — All individual p-\* tools
 - [Queue Patterns & Composition](queue-patterns-and-composition.md) — Real-world examples
 - [Node.js Stream Concurrency Overview](node-stream-concurrency.md) — Full integration pattern

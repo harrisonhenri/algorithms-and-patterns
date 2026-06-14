@@ -26,6 +26,60 @@ There are many forms of working with events:
 
 ![Event-Driven Architecture](../../assets/system-design/eda.png)
 
+## Delayed and scheduled messages
+
+Not all events should be consumed immediately. Some actions are intentionally deferred:
+
+- Cancel unpaid order after 30 minutes
+- Retry failed operation in 5 minutes
+- Send reminder tomorrow at 09:00
+
+Two common forms:
+
+| Type | Example |
+| ---- | ------- |
+| Delayed message | Deliver in 30 minutes |
+| Scheduled message | Deliver at 15:30 |
+
+At runtime, both are "message + release time".
+
+**Basic flow:**
+
+```
+Producer
+  |
+  | send with delay/schedule
+  v
+Broker temporary storage
+  |
+  | release at target time
+  v
+Topic/Queue
+  |
+  v
+Consumer
+```
+
+### Common implementation strategies
+
+- Delay queue/topic with TTL + forward/dead-letter routing
+- Predefined delay levels (for simpler broker internals)
+- Hierarchical timing wheels for large timer cardinality
+
+Timing-wheel based schedulers are common in high-scale systems because they keep timer operations close to O(1)-like behavior per event.
+
+### Why this matters for sagas
+
+Delayed delivery is a practical way to model distributed timeouts:
+
+```
+OrderCreated
+  -> schedule CheckPaymentTimeout(+30m)
+  -> if still pending at timeout: cancel order
+```
+
+This avoids periodic scans for timeout checks and keeps workflow logic event-driven.
+
 ## Kafka x RabbitMQ
 
 <aside>
@@ -77,70 +131,31 @@ Use **RabbitMQ** when you need **immediate, short-lived task handling** or **req
 
 ## Delivery Guarantee Semantics
 
-Event systems provide different delivery guarantees:
+Event systems provide different delivery guarantees. For comprehensive definitions and use cases, see [transactions-and-concurrency.md#delivery-guarantee-semantics](transactions-and-concurrency.md#delivery-guarantee-semantics).
 
-### At-Most-Once
-
-- Message delivered **zero or one time**
-- May be lost
-- Never duplicated
-
-Use when:
-
-- Data loss acceptable (analytics, metrics)
-- Duplicate worse than loss (ad impressions)
-
-Example: UDP, fire-and-forget RPC
-
----
-
-### At-Least-Once
-
-- Message delivered **one or more times**
-- Never lost
-- May be duplicated
-
-Use when:
-
-- Duplicates tolerable (idempotent operations)
-- Data loss unacceptable
-
-Implementation:
-
-- Broker retries on no ACK
-- Consumer may see duplicates on retry
-
-Example: Kafka default, RabbitMQ manual ACK
-
----
-
-### Exactly-Once
-
-- Message delivered **precisely once**
-- Never lost
-- Never duplicated
-
-Use when:
-
-- Financial transactions (no duplicates allowed)
-- Accounting (every transaction counted once)
-- Inventory (duplicate decrement breaks stock)
-
-Implementation:
-
-- Combination of mechanisms:
-  - Idempotent processing
-  - Deduplication tracking
-  - Offset management
-  - Atomic commits
-
-Example: Modern Kafka transactional mode, Flink checkpoints
+The following sections detail how Kafka, RabbitMQ, and stream processors implement these guarantees.
 
 ---
 
 ## Kafka Exactly-Once Implementation
 
-Modern Kafka (0.11+) achieves exactly-once through:
+Modern Kafka (0.11+) achieves exactly-once through integrated mechanisms. See [transactions-and-concurrency.md#real-world-exactly-once-implementations](transactions-and-concurrency.md#real-world-exactly-once-implementations) for the conceptual foundation.
+
+### Important boundary
+
+Kafka EOS is "exactly-once within Kafka transactional boundaries". It is not universal "exactly one side effect everywhere".
+
+Example boundary break:
+
+```
+Consume OrderPlaced
+Charge external payment API
+Crash before offset commit
+Restart and replay
+Charge attempted again
+```
+
+For side effects outside Kafka, combine at-least-once delivery with idempotency keys, deduplication, outbox/inbox patterns, and reconciliation.
 
 ### 1. Idempotent Producer
 
@@ -183,6 +198,8 @@ Partial success impossible
 
 ### 3. Offset and Result Atomicity
 
+See [transactions-and-concurrency.md#offset-and-result-atomicity](transactions-and-concurrency.md#offset-and-result-atomicity) for detailed explanation and code examples.
+
 ```
 Consumer with exactly-once:
 
@@ -207,6 +224,8 @@ Failure scenario:
 
 ### 4. Isolation Level
 
+See [transactions-and-concurrency.md#isolation-level-configuration](transactions-and-concurrency.md#isolation-level-configuration) for details.
+
 ```
 Configuration: isolation.level = read_committed
 
@@ -221,22 +240,13 @@ Consumer behavior:
 
 ## RabbitMQ Exactly-Once Patterns
 
-RabbitMQ doesn't natively provide exactly-once. Pattern:
+RabbitMQ doesn't natively provide exactly-once like Kafka. See [transactions-and-concurrency.md#rabbitmq-exactly-once-patterns](transactions-and-concurrency.md#rabbitmq-exactly-once-patterns) for detailed implementation patterns and code examples.
 
-### Publisher Confirms + Idempotency
+**Quick summary:**
 
-```
-1. Publisher sends with unique correlation ID
-2. RabbitMQ confirms (publisher confirms feature)
-3. Consumer processes idempotently
-4. Consumer stores processed IDs
-
-Duplicate detection:
-  If same correlation ID seen:
-    ✓ Message already processed
-    → Return cached result
-    → Skip processing
-```
+- Publisher confirms + correlation IDs
+- Consumer-side idempotent processing
+- Application-level deduplication storage
 
 ---
 
@@ -265,17 +275,31 @@ References:
 
 ---
 
-## Exactly-Once Checklist for Event Systems
+## Exactly-Once Verification Checklist
 
-Before claiming exactly-once, ensure:
+See [transactions-and-concurrency.md#achieving-exactly-once-checklist](transactions-and-concurrency.md#achieving-exactly-once-checklist) for comprehensive checklist when designing exactly-once systems.
 
-- [ ] **Unique message IDs** — correlation ID, request ID, or offset
-- [ ] **Idempotent processing** — same message reprocessed = same result
-- [ ] **Atomic writes** — output and offset stored together
-- [ ] **Deduplication** — processed IDs tracked and checked
-- [ ] **Failure recovery** — crash doesn't lose work or duplicate
-- [ ] **State persistence** — processed state survives restart
-- [ ] **End-to-end** — covers producer-broker-consumer pipeline
+**Quick reference for event systems:**
+
+- [ ] Unique message IDs (correlation ID, request ID, or offset)
+- [ ] Idempotent processing (same message = same result)
+- [ ] Atomic writes (offset and result stored together)
+- [ ] Deduplication (processed IDs tracked and checked)
+- [ ] Failure recovery (no work lost or duplicated)
+- [ ] State persistence (processed state survives restart)
+- [ ] End-to-end coverage (full producer-broker-consumer pipeline)
+
+---
+
+## Domain Quality Drives Architecture Quality
+
+Event-driven architecture works best when **domain boundaries are clear**. If domain decomposition is poor (tangled responsibilities, god objects), event-driven systems will struggle with tight coupling and unclear service ownership.
+
+**Key principle:**
+
+> Architecture quality follows domain model quality. Design your domains first (DDD), then build event-driven systems that respect domain boundaries.
+
+**See also:** [Domain-Driven Design](./domain-driven-design.md#architecture-quality-depends-on-domain-model-quality) for bounded context design and context mapping patterns.
 
 ---
 
