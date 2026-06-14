@@ -18,12 +18,14 @@ Design the message receiver to be an Idempotent Receiver that can gracefully han
 ## Context & Forces
 
 **When to use:**
+
 - Message delivery not guaranteed exactly-once
 - At-least-once delivery (may duplicate)
 - Can't avoid duplicates at broker level
 - Critical to not process same message twice
 
 **Avoid when:**
+
 - Broker guarantees exactly-once
 - Duplicate detection expensive vs. risk
 - Some re-processing acceptable
@@ -38,6 +40,7 @@ Design the message receiver to be an Idempotent Receiver that can gracefully han
 ## Idempotency Strategies
 
 **Strategy 1: Message ID tracking**
+
 ```
 Before processing:
   - Check: Have we seen message ID before?
@@ -48,6 +51,7 @@ Storage: Database, distributed cache, message store
 ```
 
 **Strategy 2: Business logic idempotency**
+
 ```
 Operation is naturally idempotent:
   - GetBalance() - query; duplicate call OK
@@ -60,6 +64,7 @@ Non-idempotent:
 ```
 
 **Strategy 3: Deduplication in process**
+
 ```
 Detect within single handling:
   - Multiple messages at once (batch)
@@ -70,6 +75,7 @@ Detect within single handling:
 ## Implementation Pattern
 
 **Persistent dedup store:**
+
 ```
 messageIdSeen = cache or database
 
@@ -77,12 +83,13 @@ function handleMessage(message):
   if messageIdSeen.contains(message.id):
     log("Duplicate message: " + message.id)
     return  // skip processing
-  
+
   messageIdSeen.add(message.id)
   processMessage(message)
 ```
 
 **Idempotent operation:**
+
 ```
 // SET is idempotent; any duplicates are harmless
 SET account.balance = 1000
@@ -97,23 +104,27 @@ SET account.balance = (current - 100)  // With version check
 ## Deduplication Storage
 
 **Option 1: Local cache**
+
 - Fast; in-process
 - Lost on restart
 - Works only for single instance
 
 **Option 2: Persistent database**
+
 - Survives restart
 - Shared across instances
 - Slower; adds DB query per message
 - Risk: DB performance bottleneck
 
 **Option 3: Distributed cache (Redis, Memcached)**
+
 - Fast
 - Shared across instances
 - Configurable expiration (space efficiency)
 - Trade-off: Not persistent; old IDs may be forgotten
 
 **Option 4: Message deduplication ID**
+
 - Some brokers track message IDs
 - Deduplication built-in (some offset tracking)
 - Depends on broker capabilities
@@ -121,12 +132,14 @@ SET account.balance = (current - 100)  // With version check
 ## Idempotency Window
 
 **How long to track message IDs?**
+
 ```
 Short window: Less storage, risk of duplicates after window
 Long window: More storage, safer
 ```
 
 **Strategy:**
+
 - Track recent messages: Last 1 hour (default)
 - Assume: If not seen in 1 hour, won't see again
 - Trade-off: Storage vs. safety window
@@ -148,11 +161,13 @@ Long window: More storage, safer
 ## Exactly-Once vs. Idempotent Receiver
 
 **Exactly-once semantics:**
+
 - Broker + application guarantee no duplicates
 - Hard to implement; high complexity
 - Only if absolutely necessary
 
 **Idempotent receiver:**
+
 - At-least-once delivery from broker
 - Application deduplicates or handles naturally
 - Simpler; practical approach
@@ -162,11 +177,13 @@ Long window: More storage, safer
 ## Performance Considerations
 
 **Dedup overhead:**
+
 - Cache lookup: O(1) typically; negligible
 - Database lookup: Network latency; can be bottleneck
 - Risk: High-throughput system; dedup adds cost
 
 **Optimization:**
+
 - Batch dedup (check multiple IDs at once)
 - Bloom filters (probabilistic; some false negatives)
 - Sample-based (track X% of messages)
@@ -174,6 +191,7 @@ Long window: More storage, safer
 ## Transactional Dedup
 
 **Atomic operation:**
+
 ```
 BEGIN TRANSACTION
   IF messageId NOT IN processed_ids:
@@ -187,6 +205,7 @@ Ensures dedup and processing are atomic.
 ## Example: Payment Transfer
 
 **Non-idempotent (risky):**
+
 ```
 accountA.balance -= 100
 accountB.balance += 100
@@ -194,10 +213,11 @@ accountB.balance += 100
 ```
 
 **Idempotent with dedup:**
+
 ```
 if messageId in processedIds:
   return  // already handled
-  
+
 if accountA.balance >= 100:
   accountA.balance -= 100
   accountB.balance += 100
@@ -205,6 +225,7 @@ if accountA.balance >= 100:
 ```
 
 **Idempotent by design (better):**
+
 ```
 SET accountA.balance = SELECT balance - 100 WHERE id = A AND version = 5
 SET accountB.balance = SELECT balance + 100 WHERE id = B AND version = 7
@@ -263,4 +284,4 @@ This revalidation step prevents valid paid orders from being cancelled by late o
 
 ---
 
-*Pattern from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)*
+_Pattern from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)_

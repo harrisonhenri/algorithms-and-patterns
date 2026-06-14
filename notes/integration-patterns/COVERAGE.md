@@ -9,6 +9,7 @@ tags: [integration-pattern, manifest, coverage]
 Complete manifest of all 65 Enterprise Integration Patterns from enterpriseintegrationpatterns.com, organized by category with implementation status.
 
 ## Status Key
+
 - ✅ **Complete**: Full documentation with problem, solution, considerations, examples
 - 📝 **Stub**: Brief summary; expand as needed
 - ❌ **Placeholder**: Listed for completeness; to be documented
@@ -27,6 +28,7 @@ Complete manifest of all 65 Enterprise Integration Patterns from enterpriseinteg
 ## Messaging Channels (15/15) - 6 Core + 9 Channel Types
 
 ### Core Concepts (6)
+
 - ✅ [Message Channel](./messaging-channels/message-channel.md)
 - 📝 Message (brief implementation)
 - 📝 [Pipes and Filters](./messaging-channels/pipes-and-filters.md) (simple sequence)
@@ -35,6 +37,7 @@ Complete manifest of all 65 Enterprise Integration Patterns from enterpriseinteg
 - 📝 [Message Endpoint](./messaging-channels/message-endpoint.md) (app connection)
 
 ### Channel Types (9)
+
 - ✅ [Point-to-Point Channel](./messaging-channels/point-to-point-channel.md)
 - ✅ [Publish-Subscribe Channel](./messaging-channels/publish-subscribe-channel.md)
 - 📝 Datatype Channel (organize by type)
@@ -121,6 +124,7 @@ Complete manifest of all 65 Enterprise Integration Patterns from enterpriseinteg
 ## Summary
 
 **Total Patterns**: 65
+
 - **Fully Documented** (✅): 19 patterns (29%)
 - **Stub/Brief** (📝): 46 patterns (71%)
 - **Placeholder** (❌): 0 patterns
@@ -134,7 +138,9 @@ Complete manifest of all 65 Enterprise Integration Patterns from enterpriseinteg
 ## Implementation Plan for Remaining Patterns
 
 ### Phase 2: High-Priority Stubs → Full Docs
+
 These are most commonly referenced in modern systems:
+
 1. Dead Letter Channel (reliability)
 2. Saga/Compensation (distributed transactions)
 3. Content Filter (transformation)
@@ -143,40 +149,47 @@ These are most commonly referenced in modern systems:
 6. Correlation Identifier (tracking)
 
 ### Phase 3: Medium-Priority
+
 System management, channels, and advanced routing:
 7-15. Channel variants, Wire Tap, Detour, etc.
 
 ### Phase 4: Advanced/Legacy
+
 Less frequently used but important for completeness:
 16+. Format Indicator, Canonical Data Model, etc.
 
 ## Quick Reference: By Technology
 
 ### Apache Kafka
+
 - Message Channel, Pub-Subscribe Channel, Partitions (routing)
 - Competing Consumers (consumer groups)
 - Message History (logs)
 - Streams, Topology (Pipes and Filters)
 
 ### RabbitMQ
+
 - Point-to-Point (queues), Pub-Sub (topic exchanges)
 - Message Router (exchange routing)
 - Dead Letter Exchanges, TTL (Message Expiration)
 - Channels, Consumer Pool (Event-Driven Consumer)
 
 ### AWS (SQS/SNS/EventBridge)
+
 - SQS = Point-to-Point, SNS = Pub-Sub
 - EventBridge = Content-Based Router + Message Bus
 - Step Functions = Process Manager
 - Lambda = Event-Driven Consumer, Service Activator
 
 ### Azure (Service Bus/Event Grid)
+
 - Service Bus Queues = P2P, Topics = Pub-Sub
 - Event Grid = Content-Based Router
 - Logic Apps = Process Manager
 - Functions = Event-Driven Consumer
 
 ### Google Cloud (Pub/Sub)
+
 - Pub/Sub Topics = Pub-Subscribe Channel
 - Dataflow = Pipes and Filters, Splitter, Aggregator
 - Workflows = Process Manager
@@ -184,10 +197,11 @@ Less frequently used but important for completeness:
 ---
 
 ## See Also
+
 - [Pattern Selection Guide](./pattern-selection-guide.md) — Decision matrix for choosing patterns
 - [Main README](./README.md) — Overview and category descriptions
 - Individual pattern documents for deep dives
 
 ---
 
-*Patterns from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)*
+_Patterns from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)_

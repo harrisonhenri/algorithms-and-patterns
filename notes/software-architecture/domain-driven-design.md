@@ -110,6 +110,7 @@ dispatcher.dispatchAll(user.domainEvents);
 **The mistake:** Organizing services by technical function rather than business domain.
 
 **Example (BAD):**
+
 ```
 UserService (all user operations)
 OrderService (all order operations)
@@ -120,12 +121,14 @@ Each service touches every domain; no clear ownership
 ```
 
 **The problem:**
+
 - Services become god objects touching all domains
 - Tight coupling across technical boundaries
 - Hard to change one domain without affecting others
 - Scaling is limited to entire service (not per-domain)
 
 **Domain decomposition (GOOD):**
+
 ```
 OrderDomain owns: order creation, fulfillment, cancellation
 PaymentDomain owns: payment processing, reconciliation
@@ -154,6 +157,7 @@ A bounded context is a boundary around a domain model where:
 When multiple bounded contexts need to interact, define the relationship:
 
 #### 1. Conformist
+
 The downstream context **accepts the upstream model as-is**:
 
 ```
@@ -166,6 +170,7 @@ Order Context (downstream)
 ```
 
 **When to use:**
+
 - Upstream is a core system (bank API, payment gateway)
 - Downstream can adapt without business loss
 - Integration cost < value of stability
@@ -173,6 +178,7 @@ Order Context (downstream)
 **Risk:** Tight coupling; upstream changes ripple downstream
 
 #### 2. Anti-Corruption Layer (ACL)
+
 The downstream context **translates upstream model** to its own model:
 
 ```
@@ -185,6 +191,7 @@ Order Context (downstream, owns order fulfillment)
 ```
 
 **When to use:**
+
 - Upstream model is legacy, complex, or volatile
 - Downstream has stricter consistency requirements
 - Want to isolate upstream changes
@@ -192,6 +199,7 @@ Order Context (downstream, owns order fulfillment)
 **Trade-off:** Translation cost, more code
 
 #### 3. Shared Kernel
+
 Two contexts **share a core model** (rarely recommended):
 
 ```
@@ -208,6 +216,7 @@ Profile Context:
 **Risk:** Changes to shared kernel require coordination; high coupling
 
 #### 4. Separate Ways
+
 Two contexts **don't integrate**; each maintains its own model independently:
 
 ```
@@ -235,6 +244,7 @@ Integration: Asynchronous event stream (optional)
 ### How Domain Model Quality Drives Architecture
 
 **Poor domain model:**
+
 ```
 Order contains: Customer, Payment, Shipping, Billing, Inventory
 → Order becomes a god object
@@ -244,6 +254,7 @@ Order contains: Customer, Payment, Shipping, Billing, Inventory
 ```
 
 **Good domain model:**
+
 ```
 OrderDomain: Order, LineItem, OrderStatus
 PaymentDomain: Payment, PaymentMethod, Receipt
@@ -294,6 +305,7 @@ Domain-driven design and event-driven architecture are **complementary**:
 **EDA provides:** Asynchronous communication, event sourcing, scalability
 
 **Integration:**
+
 - Domain events (DDD concept) are published to event streams (EDA infrastructure)
 - Bounded contexts communicate via domain events
 - Event sourcing naturally preserves domain audit trail

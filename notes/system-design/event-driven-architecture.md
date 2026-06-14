@@ -36,10 +36,10 @@ Not all events should be consumed immediately. Some actions are intentionally de
 
 Two common forms:
 
-| Type | Example |
-| ---- | ------- |
-| Delayed message | Deliver in 30 minutes |
-| Scheduled message | Deliver at 15:30 |
+| Type              | Example               |
+| ----------------- | --------------------- |
+| Delayed message   | Deliver in 30 minutes |
+| Scheduled message | Deliver at 15:30      |
 
 At runtime, both are "message + release time".
 

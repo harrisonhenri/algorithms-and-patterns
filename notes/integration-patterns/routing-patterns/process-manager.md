@@ -18,12 +18,14 @@ Use a Process Manager to route a message through multiple steps, where the manag
 ## Context & Forces
 
 **When to use:**
+
 - Multi-step process; steps depend on state/conditions
 - Order of steps not fixed; data-driven routing
 - Coordination across multiple services needed
 - Stateful workflow (vs. stateless)
 
 **Avoid when:**
+
 - Simple, fixed sequence (use Routing Slip or Pipes and Filters)
 - No state needed
 - Choreography more appropriate (event-driven)
@@ -38,6 +40,7 @@ Use a Process Manager to route a message through multiple steps, where the manag
 ## Process Manager Pattern
 
 **Structure:**
+
 ```
 Request arrives
     ↓
@@ -63,6 +66,7 @@ Process Manager
 ## Process Manager vs. Choreography
 
 **Orchestration (Process Manager):**
+
 ```
 Manager: "Warehouse, reserve items"
 Warehouse: (reserves)
@@ -72,15 +76,18 @@ Manager: "Shipping, prepare package"
 Shipping: (ships)
 Manager: (complete)
 ```
+
 Centralized control; manager knows overall flow.
 
 **Choreography (Event-driven):**
+
 ```
 OrderService: publishes OrderPlaced
     → WarehouseService listens, reserves, publishes ItemsReserved
     → BillingService listens, invoices, publishes InvoiceCreated
     → ShippingService listens, ships, publishes PackageShipped
 ```
+
 Distributed control; each service reacts to events.
 
 ## Example Scenarios
@@ -94,17 +101,20 @@ Distributed control; each service reacts to events.
 ## State Management
 
 **Track:**
+
 - Current step
 - Completed steps
 - Retry count
 - Data accumulated so far
 
 **Storage:**
+
 - Database (persistent)
 - Cache (fast, volatile)
 - Message (stateless; pass state in messages)
 
 **Cleanup:**
+
 - Remove state after completion
 - Timeout for long-running processes
 - Archive for audit
@@ -112,12 +122,14 @@ Distributed control; each service reacts to events.
 ## Failure Handling
 
 **Service fails:**
+
 1. **Retry**: Resend command to service
 2. **Timeout**: Wait max time; assume failure
 3. **Dead Letter**: Send to manual queue
 4. **Compensation**: Undo prior steps (saga pattern)
 
 **Process Manager fails:**
+
 - Restart from last saved state
 - Persist state before sending commands
 
@@ -146,6 +158,7 @@ For duplicate and out-of-order safety on timeout consumers, pair with [Idempoten
 **Extended Process Manager for consistency:**
 
 **Happy path:**
+
 ```
 OrderService: Create order
 Warehouse: Reserve inventory
@@ -154,6 +167,7 @@ Shipping: Send package
 ```
 
 **Failure at step 3 (billing fails):**
+
 ```
 Compensation:
 Warehouse: Unreserve inventory (compensating transaction)
@@ -178,6 +192,7 @@ Process Manager tracks: CorrelationId → workflow state
 ## Process Manager Implementation
 
 **Technology options:**
+
 - Custom: Database + polling + logic
 - Workflow engine: Apache Camel, Spring Integration
 - Orchestration platform: AWS Step Functions, GCP Workflows, Azure Logic Apps
@@ -185,18 +200,19 @@ Process Manager tracks: CorrelationId → workflow state
 
 ## Comparison: Choreography vs. Orchestration
 
-| Aspect | Choreography | Orchestration |
-|--------|--------------|---------------|
-| **Control** | Distributed | Centralized |
-| **Visibility** | Hard to see flow | Clear flow (process manager) |
-| **Coupling** | Loose (event-driven) | Tighter (commands) |
-| **Testing** | Hard (async) | Easier (orchestrator testable) |
-| **Failure handling** | Distributed (hard) | Centralized (easier) |
-| **Complexity** | Grows with interactions | Grows with steps |
+| Aspect               | Choreography            | Orchestration                  |
+| -------------------- | ----------------------- | ------------------------------ |
+| **Control**          | Distributed             | Centralized                    |
+| **Visibility**       | Hard to see flow        | Clear flow (process manager)   |
+| **Coupling**         | Loose (event-driven)    | Tighter (commands)             |
+| **Testing**          | Hard (async)            | Easier (orchestrator testable) |
+| **Failure handling** | Distributed (hard)      | Centralized (easier)           |
+| **Complexity**       | Grows with interactions | Grows with steps               |
 
 ## Recommended: Hybrid
 
 **Combination:**
+
 - Orchestration for critical workflows (transactions, orders)
 - Choreography for notifications (event-driven)
 - Process Manager for long-running processes
@@ -211,4 +227,4 @@ Process Manager tracks: CorrelationId → workflow state
 
 ---
 
-*Pattern from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)*
+_Pattern from [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/) (Hohpe & Woolf, CC-BY)_

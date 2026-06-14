@@ -11,6 +11,7 @@ Enterprise Integration Patterns (EIP) provide a technology-independent vocabular
 ## Pattern Categories
 
 ### 1. [Integration Styles](./integration-styles/) — 4 patterns
+
 Foundational approaches to integrating multiple applications. Establishes the context for message-based integration.
 
 - File Transfer
@@ -19,9 +20,11 @@ Foundational approaches to integrating multiple applications. Establishes the co
 - Messaging
 
 ### 2. [Messaging Channels](./messaging-channels/) — 15 patterns
+
 Core concepts and channel patterns for transporting messages. Covers message construction, channel types, reliability, and connectivity.
 
 **Core Concepts** (6):
+
 - Message Channel
 - Message
 - Pipes and Filters
@@ -30,6 +33,7 @@ Core concepts and channel patterns for transporting messages. Covers message con
 - Message Endpoint
 
 **Channel Types** (9):
+
 - Point-to-Point Channel
 - Publish-Subscribe Channel
 - Datatype Channel
@@ -41,6 +45,7 @@ Core concepts and channel patterns for transporting messages. Covers message con
 - Message Bus
 
 ### 3. [Message Construction](./message-construction/) — 9 patterns
+
 Patterns for structuring and correlating messages. Defines message types, headers, expiration, and sequence handling.
 
 - Command Message
@@ -54,6 +59,7 @@ Patterns for structuring and correlating messages. Defines message types, header
 - Format Indicator
 
 ### 4. [Routing Patterns](./routing-patterns/) — 12 patterns
+
 How messages are directed from sender to receiver(s). Includes message filtering, dynamic routing, aggregation, and process orchestration.
 
 - Content-Based Router
@@ -70,6 +76,7 @@ How messages are directed from sender to receiver(s). Includes message filtering
 - Message Broker
 
 ### 5. [Transformation Patterns](./transformation-patterns/) — 6 patterns
+
 Changing message content and format. Handles data enrichment, filtering, and format normalization.
 
 - Envelope Wrapper
@@ -80,6 +87,7 @@ Changing message content and format. Handles data enrichment, filtering, and for
 - Canonical Data Model
 
 ### 6. [Messaging Endpoints](./messaging-endpoints/) — 11 patterns
+
 How applications produce and consume messages. Covers synchronization, transactionality, concurrency, and idempotency.
 
 - Messaging Gateway
@@ -95,6 +103,7 @@ How applications produce and consume messages. Covers synchronization, transacti
 - Service Activator
 
 ### 7. [System Management](./system-management/) — 8 patterns
+
 Monitoring, debugging, and administering message-based systems. For visibility, testing, and control.
 
 - Control Bus
