@@ -379,94 +379,169 @@ If crash between process and commit:
 
 ### Offset and Result Atomicity
 
-The critical insight for exactly-once in event systems is **atomic pairing of offset and result storage**.
+The key requirement for reliable event processing is:
 
-**The Pattern:**
+> **Business state and processing progress must be persisted atomically.**
 
-```
-1. Fetch message from partition 5, offset 100
-2. Process message (must be idempotent)
-3. Atomically store BOTH:
-   - Offset 100 marked as processed
-   - Result of processing (e.g., in database, cache, or log)
+Whenever a message is processed, the system must ensure that both are stored together:
 
-Failure scenario:
-  If crash between step 2 and 3:
-    - On recovery: offset 100 not marked complete
-    - Consumer sees offset 100 not committed
-    - Replays message from offset 100
-    - Idempotent handler deduplicates
-    - Result: exactly-once end-to-end
-```
+- Business result (database update, side effect, etc.)
+- Processing progress (offset, sequence number, event ID)
 
-**Why Atomicity Matters:**
+---
 
-Separating offset storage from result storage breaks exactly-once:
+### The Pattern
 
-```
-❌ BAD: Non-atomic pattern
-  1. Process message
-  2. Store result in DB
-  3. Commit offset
+```text
+1. Read message at offset 100
+2. Process message
+3. Atomically persist:
+   - Business result
+   - Offset/event ID
 
-  If crash after step 2, before step 3:
-    - Result already in DB
-    - On recovery: offset replayed, duplicate processing
+If crash occurs before step 3:
+  → Message is replayed
 
-❌ Also BAD: Reverse order
-  1. Commit offset
-  2. Process message
-  3. Store result
-
-  If crash after step 1, before step 3:
-    - Offset committed
-    - Result lost
-    - Data loss on recovery
+If crash occurs after step 3:
+  → Progress already recorded
+  → Replay is skipped or deduplicated
 ```
 
-**Kafka Transactional Model:**
+---
 
-Modern Kafka (0.11+) supports atomic offset + result commits:
+### Why Atomicity Matters
 
-```java
-// Exactly-once consumer with Kafka transactions
-consumer.beginTransaction();  // or within external txn
+#### ❌ Result first, offset later
 
-try {
-    ConsumerRecords records = consumer.poll(Duration.ofMillis(1000));
-
-    for (ConsumerRecord record : records) {
-        Result result = processRecord(record);  // idempotent
-        storeResult(result);  // to database
-    }
-
-    consumer.commitSync();  // atomic: both result and offset
-    transactionManager.commit();
-
-} catch (Exception e) {
-    consumer.abortTransaction();
-    transactionManager.rollback();
-}
+```text
+1. Process message
+2. Store result
+3. Commit offset
 ```
 
-**External Atomic Storage:**
+Crash between 2 and 3:
 
-If using external database for results (not Kafka itself):
+```text
+Result persisted
+Offset not committed
 
+→ Message is replayed
+→ Duplicate processing
 ```
-Kafka consumer offset → stored in Kafka (Kafka keeps track)
-Processing result → stored in database (application responsibility)
 
-Atomicity requirement:
-  Must update BOTH in same transaction:
+#### ❌ Offset first, result later
 
-  Transaction:
-    BEGIN
-      INSERT INTO processed_events (offset, result_data)
-        VALUES (100, {...});
-      UPDATE consumer_offset SET offset = 101;
-    COMMIT  (both atomic)
+```text
+1. Commit offset
+2. Store result
 ```
+
+Crash between 1 and 2:
+
+```text
+Offset committed
+Result lost
+
+→ Message is never replayed
+→ Data loss
+```
+
+---
+
+### Kafka Transactions
+
+Kafka's Exactly-Once Semantics (EOS) provides atomicity between:
+
+```text
+Consumed offsets
++
+Produced Kafka records
+```
+
+Example:
+
+```text
+Topic A
+   ↓
+Process
+   ↓
+Topic B
+```
+
+Kafka guarantees:
+
+```text
+Either:
+  - Output records are written
+  - Offsets are committed
+
+Or:
+  - Neither happens
+```
+
+This works well for:
+
+```text
+Kafka → Process → Kafka
+```
+
+---
+
+### External Database Pattern
+
+Kafka transactions do **not** automatically include PostgreSQL, MySQL, Redis, etc.
+
+For:
+
+```text
+Kafka → Process → Database
+```
+
+a common solution is storing both business state and processing progress in the same database transaction:
+
+```sql
+BEGIN;
+
+INSERT INTO orders (...);
+
+INSERT INTO processed_events (
+    topic,
+    partition,
+    offset
+) VALUES (
+    'orders',
+    5,
+    100
+);
+
+COMMIT;
+```
+
+Now:
+
+```text
+Order created
++
+Offset 100 recorded
+```
+
+are committed atomically.
+
+---
+
+### In Practice
+
+Many systems achieve correctness through:
+
+```text
+At-least-once delivery
++
+Idempotent processing
++
+Atomic state/progress persistence
+```
+
+rather than relying solely on Kafka transactions.
 
 ---
 

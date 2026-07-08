@@ -17,7 +17,7 @@ Study notes for this repository.
 - [Scheduling models](./language-mechanics/scheduling-models.md) - processes, threads (OS/green), futures/promises, coroutines.
 - [Concurrency models](./paradigms-and-patterns/concurrency-models.md) - CSP, Petri nets, and selection guidance.
 - [System design interview core concepts](./system-design/system-design-interview-core-concepts.md) - tradeoff-centered cheat sheet with deep-dive links.
-- [Como Staff+ podem desenvolver o pensamento estratégico](./software-architecture/pensamento-estrategico-staff-plus.md) - diagnóstico, princípios, execução, risco e influência organizacional.
+- [How Staff+ Can Develop Strategic Thinking](./software-architecture/strategic-thinking-staff-plus.md) - diagnosis, principles, execution, risk, and organizational influence.
 
 ## Tags
 

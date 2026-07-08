@@ -181,6 +181,33 @@ Client ← Query → Polling Consumer ← Event-Driven Consumer ← Event Stream
 - **Endpoints**: Event-Driven Consumer (via KafkaListener)
 - **Coordination**: Process Manager (via workflow engines reading from Kafka)
 
+#### Kafka Tools Comparison: Streams vs ksqlDB vs Connect
+
+| Dimension                | Kafka Streams                                               | ksqlDB                          | Kafka Connect                       |
+| ------------------------ | ----------------------------------------------------------- | ------------------------------- | ----------------------------------- |
+| **Type**                 | Library (code-based)                                        | SQL stream processing engine    | Integration framework               |
+| **Primary purpose**      | Custom stream processing logic                              | Declarative stream processing   | Move data in/out of Kafka           |
+| **Interface**            | Java / Scala API                                            | SQL                             | JSON configuration                  |
+| **Complexity**           | High flexibility                                            | Medium (simplified)             | Low (plug & play)                   |
+| **Deployment model**     | Microservice you run                                        | ksqlDB server (Confluent)       | Connect cluster + workers           |
+| **Stateful ops (joins)** | Full control                                                | Supported (limited abstraction) | Not supported                       |
+| **Transformations**      | Full (any logic)                                            | Limited SQL expressions         | Basic transforms (SMTs)             |
+| **Latency control**      | Very low (fine-tuned)                                       | Low (but abstracted)            | Depends on connector                |
+| **Related EIP Patterns** | Content-Based Router, Splitter, Aggregator, Pipes & Filters | Same (SQL-declarative)          | Channel Adapter, Message Translator |
+
+**When to use:**
+
+- **Kafka Streams**: Complex transformations, custom logic, low-latency requirements, Java teams
+- **ksqlDB**: Simpler stream processing, SQL-familiar teams, quick prototyping, event streaming
+- **Kafka Connect**: Integrating external systems (databases, APIs, logs), zero-code/low-code connectors
+
+**Pattern Mapping:**
+
+- **Streams → Content-Based Router**: Partition key selects routing; branching for conditional logic
+- **Streams → Splitter/Aggregator**: Windowed operations, stream joins
+- **ksqlDB → Content Enricher**: Stream joins with reference tables
+- **Connect → Channel Adapter**: Bridges Kafka to external systems (legacy integration)
+
 ### AWS EventBridge / SQS / SNS
 
 - **Channels**: SNS = Publish-Subscribe Channel; SQS = Point-to-Point Channel

@@ -25,8 +25,14 @@ import { DoublyLinkedList } from "../../../structures/linked-list";
  * 3. When reaching the target node (n-1), store the complete path
  * 4. Backtrack by removing the current node from the path
  *
- * **Time Complexity:** O(2^n × n) - Exponential paths × path length
- * **Space Complexity:** O(n) - Recursion depth (excluding output)
+ * **Time Complexity:** O(2^n × n)
+ *   - Number of paths in worst case (complete graph): 2^n
+ *   - Each path of length n is copied to result: O(n)
+ *   - Total: O(2^n × n)
+ *
+ * **Space Complexity:** O(n)
+ *   - Recursion depth: O(n) for path from node 0 to n-1
+ *   - Output array excluded from space complexity
  *
  * @date 14/01/2026 - 00:00:00
  */
@@ -81,6 +87,12 @@ function dfs(
  *
  * Uses an explicit stack to manage paths and nodes, avoiding recursion.
  * Each stack element contains the current node and the path to reach it.
+ *
+ * **Space Complexity:** O(2^n × n)
+ *   - Stack stores up to 2^n paths in worst case
+ *   - Each path stored on stack: O(n)
+ *   - Total: O(2^n × n) versus O(n) for recursive
+ *   - Trade-off: More space to avoid recursion depth limit
  */
 function allPathsSourceTargetIterative(graph: number[][]): number[][] {
   const target = graph.length - 1;
@@ -114,6 +126,18 @@ function allPathsSourceTargetIterative(graph: number[][]): number[][] {
  * Uses the project's DoublyLinkedList directly to maintain the current path during traversal.
  * This demonstrates proper integration of project data structures into algorithm solutions.
  *
+ * **Time Complexity:** O(2^n × n²)
+ *   - Number of paths: O(2^n)
+ *   - Per DFS call: append() O(n) + recursion + removeLast() O(n)
+ *   - Path copy toArray(): O(n)
+ *   - Total: O(2^n × n²) - significantly worse than array approach
+ *
+ * **Space Complexity:** O(n²)
+ *   - Recursion depth: O(n)
+ *   - DoublyLinkedList nodes on stack: O(n) with pointers
+ *   - Output array excluded
+ *   - Higher memory overhead due to node pointers
+ *
  * **Implementation notes:**
  * - Uses `append()` to add nodes to the path (O(n) tail traversal)
  * - Uses `removeLast()` for efficient backtracking (O(n) tail removal)
@@ -125,6 +149,7 @@ function allPathsSourceTargetIterative(graph: number[][]): number[][] {
  * - Higher memory overhead (pointers per node)
  * - Best demonstrates data structure integration in projects
  * - For small paths (typical DAG), performance is acceptable
+ * - **Not recommended for large graphs** (n² factor adds up quickly)
  */
 function allPathsSourceTargetWithDoublyLinkedList(
   graph: number[][],
