@@ -419,14 +419,412 @@ All systems solve the same problem:
 
 ## 📌 Summary
 
-| Technique  | Idea                        |
-| ---------- | --------------------------- |
-| Hash index | Direct lookup               |
-| LSM tree   | Append + merge logs         |
-| B-tree     | Balanced page tree          |
-| Geohash    | Encode 2D → 1D string       |
-| Quadtree   | Recursive spatial partition |
-| S2         | Sphere → curve → 1D         |
+| Technique      | Idea                        |
+| -------------- | --------------------------- |
+| Hash index     | Direct lookup               |
+| LSM tree       | Append + merge logs         |
+| B-tree         | Balanced page tree          |
+| Inverted index | Term → document mapping     |
+| Geohash        | Encode 2D → 1D string       |
+| Quadtree       | Recursive spatial partition |
+| S2             | Sphere → curve → 1D         |
+
+---
+
+# Inverted Indexes (Full-Text Search)
+
+## 🎯 The Problem
+
+Traditional indexes work well for:
+
+- exact lookups
+- range queries
+- ordered traversal
+
+Example:
+
+```sql
+WHERE user_id = 42
+WHERE created_at > '2025-01-01'
+```
+
+But they perform poorly for text search:
+
+```text
+"find documents containing 'distributed systems'"
+```
+
+A B-Tree index on the full text column is usually not enough because:
+
+- text is unstructured
+- searches involve words/tokens
+- ranking matters
+- partial matching matters
+- phrase matching matters
+
+---
+
+## 🧠 Core Idea
+
+An inverted index flips the relationship between documents and terms.
+
+### Forward Index
+
+Traditional storage:
+
+```text
+Document 1 → ["distributed", "systems"]
+Document 2 → ["database", "index"]
+```
+
+### Inverted Index
+
+Search-oriented structure:
+
+```text
+"distributed" → [doc1]
+"systems" → [doc1]
+"database" → [doc2]
+"index" → [doc2]
+```
+
+This enables fast term-based retrieval.
+
+---
+
+## 📚 Posting Lists
+
+Each term stores a list of matching documents.
+
+Example:
+
+```text
+"search" → [1, 5, 8, 10]
+```
+
+This list is called a:
+
+> Posting list
+
+Often it also stores:
+
+- term frequency
+- positions
+- scoring metadata
+
+Example:
+
+```text
+"search" →
+  doc1: positions [3, 10]
+  doc5: positions [7]
+```
+
+---
+
+## ⚙️ Tokenization Pipeline
+
+Before indexing, text is normalized.
+
+### Typical Steps
+
+1. Tokenization
+2. Lowercasing
+3. Stop-word removal
+4. Stemming/Lemmatization
+
+---
+
+## ✂️ Tokenization
+
+Split text into searchable terms.
+
+Example:
+
+```text
+"Distributed Systems are hard"
+```
+
+Becomes:
+
+```text
+["distributed", "systems", "are", "hard"]
+```
+
+---
+
+## 🛑 Stop Words
+
+Very common words are often removed.
+
+Examples:
+
+```text
+["the", "a", "is", "of"]
+```
+
+Why?
+
+- low search value
+- huge posting lists
+- wasted space
+
+---
+
+## 🌱 Stemming / Lemmatization
+
+Normalize word variations.
+
+Example:
+
+```text
+running
+runs
+ran
+```
+
+May become:
+
+```text
+run
+```
+
+This improves recall.
+
+---
+
+## 🔎 Query Execution
+
+Search queries become posting-list operations.
+
+Example:
+
+```text
+"distributed systems"
+```
+
+Can become:
+
+```text
+intersection(
+  postings("distributed"),
+  postings("systems")
+)
+```
+
+---
+
+## ⚡ Why Inverted Indexes Are Fast
+
+Instead of scanning all documents:
+
+```text
+O(number of documents)
+```
+
+The engine jumps directly to matching posting lists.
+
+This enables:
+
+- fast full-text search
+- phrase matching
+- autocomplete
+- ranking
+- fuzzy matching
+
+---
+
+## 📊 Relevance Ranking
+
+Search systems usually rank results.
+
+Not all matches are equally relevant.
+
+---
+
+## 🧮 TF-IDF Intuition
+
+TF-IDF measures:
+
+- how important a term is in a document
+- relative to all documents
+
+### Intuition
+
+A term is important if:
+
+- it appears frequently in one document
+- but not frequently everywhere
+
+Example:
+
+```text
+"distributed"
+```
+
+More valuable than:
+
+```text
+"the"
+```
+
+---
+
+## 🚀 BM25 (Modern Ranking)
+
+Modern search engines commonly use BM25.
+
+It improves TF-IDF by considering:
+
+- document length
+- term saturation
+- frequency normalization
+
+You do not need the formula for interviews.
+
+The key idea:
+
+> Better ranking based on term relevance and document quality.
+
+---
+
+## ⚖️ B-Tree vs Inverted Index
+
+| Feature           | B-Tree            | Inverted Index        |
+| ----------------- | ----------------- | --------------------- |
+| Exact lookup      | Excellent         | Good                  |
+| Range queries     | Excellent         | Poor                  |
+| Full-text search  | Poor              | Excellent             |
+| Prefix matching   | Moderate          | Excellent             |
+| Relevance ranking | No                | Yes                   |
+| Ordered traversal | Excellent         | Poor                  |
+| Typical systems   | PostgreSQL, MySQL | Elasticsearch, Lucene |
+
+---
+
+## 🌍 Distributed Search Challenges
+
+Search engines are usually distributed.
+
+This introduces additional problems.
+
+---
+
+## 🧩 Sharding Search Indexes
+
+Documents are partitioned across nodes.
+
+Example:
+
+```text
+Shard 1 → docs 1-1M
+Shard 2 → docs 1M-2M
+```
+
+Queries fan out to all shards.
+
+---
+
+## ⚠️ Aggregation Complexity
+
+Queries like:
+
+```text
+top 10 most relevant documents
+```
+
+Require:
+
+1. local ranking per shard
+2. global merge/ranking
+
+This is more expensive than simple key lookups.
+
+---
+
+## 🔄 Near Real-Time Indexing
+
+Search systems often prioritize query speed over immediate consistency.
+
+Example:
+
+- document written now
+- searchable in ~1 second
+
+This is called:
+
+> Near real-time indexing
+
+Common in:
+
+- Elasticsearch
+- Solr
+
+---
+
+## 🧠 Operational Trade-Offs
+
+### ✔ Advantages
+
+- Extremely fast text search
+- Rich ranking capabilities
+- Flexible querying
+- Great for analytics/search workloads
+
+### ❌ Limitations
+
+- Higher storage overhead
+- Complex indexing pipelines
+- Expensive reindexing
+- Eventual consistency common
+- Usually not source-of-truth databases
+
+---
+
+## 🛠️ Typical Architecture Pattern
+
+Common production setup:
+
+```text
+Primary Database
+       ↓
+Change Stream / CDC
+       ↓
+Search Index Pipeline
+       ↓
+Elasticsearch / OpenSearch
+```
+
+Why?
+
+Because transactional databases and search systems optimize for different workloads.
+
+---
+
+## 💡 Real-World Systems
+
+| System        | Technology            |
+| ------------- | --------------------- |
+| Elasticsearch | Lucene + inverted idx |
+| OpenSearch    | Lucene fork           |
+| Apache Solr   | Lucene                |
+| Splunk        | Inverted indexing     |
+| Datadog Logs  | Inverted indexing     |
+| Gmail Search  | Inverted indexing     |
+
+---
+
+## 📌 Final Intuition
+
+B-Trees optimize:
+
+> "Find rows by key"
+
+Inverted indexes optimize:
+
+> "Find documents containing terms"
+
+They solve fundamentally different access patterns.
 
 ---
 
