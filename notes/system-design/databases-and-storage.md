@@ -3,7 +3,9 @@ tags: [system-design, databases, storage, data-modeling, theory]
 title: "Databases and storage"
 ---
 
-# Data Model
+# Databases and Storage
+
+## Data Modeling
 
 A **data model** is a structured way to represent, organize, and interact with data in software systems. It defines:
 
@@ -13,7 +15,7 @@ A **data model** is a structured way to represent, organize, and interact with d
 
 ---
 
-## Layers of Data Models
+### Layers of Data Models
 
 Most software applications are built by **layering data models** on top of each other. Each layer hides the complexity of the one below it.
 
@@ -24,14 +26,14 @@ Most software applications are built by **layering data models** on top of each 
 | **3. Storage Engine**             | Manages low-level representation of data               | Indexes, memory structures, serialization          |
 | **4. Hardware Layer**             | Stores data as physical signals                        | Electrical currents, light pulses, magnetic fields |
 
-## Why Data Models Matter
+### Why Data Models Matter
 
 - They **shape how we think** about the problem we're solving.
 - They influence **how data is stored, queried, and processed**.
 - The wrong model can make certain tasks **slow, awkward, or impossible**.
 - Choosing the right model helps you build **efficient, maintainable software**.
 
-## Choosing the Right Data Model
+### Choosing the Right Data Model
 
 Different models have different strengths:
 
@@ -50,9 +52,9 @@ Each model has trade-offs in:
 
 ---
 
-# Indexes
+## Storage Engines and Indexing
 
-## 📦 Why Indexes Exist
+### 📦 Why Indexes Exist
 
 A naive key-value database:
 
@@ -75,7 +77,7 @@ To retrieve a value, the database may need to scan the whole file:
 
 ---
 
-## 🧭 Solution: Indexes
+### 🧭 Solution: Indexes
 
 An **index** is an additional structure that helps locate data quickly.
 
@@ -85,7 +87,7 @@ An **index** is an additional structure that helps locate data quickly.
 
 ---
 
-## 🔑 Hash Indexes (Simple Case)
+### 🔑 Hash Indexes (Simple Case)
 
 A basic optimization is an **in-memory hash map**:
 
@@ -112,7 +114,7 @@ So lookup becomes:
 
 ---
 
-## 📚 Log-Structured Storage (Foundation for Modern Indexes)
+### 📚 Log-Structured Storage (Foundation for Modern Indexes)
 
 Instead of overwriting data:
 
@@ -133,7 +135,7 @@ Example:
 
 ---
 
-## 🧹 Compaction
+#### 🧹 Compaction
 
 To avoid infinite growth:
 
@@ -145,7 +147,7 @@ This creates **segment files**
 
 ---
 
-## ⚡ SSTables (Sorted String Tables)
+#### ⚡ SSTables (Sorted String Tables)
 
 Now we improve logs:
 
@@ -165,7 +167,7 @@ handiwork
 
 ---
 
-## 🧠 Memtable + SSTable System
+#### 🧠 Memtable + SSTable System
 
 1. Writes go to **memtable (in-memory tree)**
 2. When full → flush to disk as SSTable
@@ -173,7 +175,7 @@ handiwork
 
 ---
 
-## 🚀 Resulting system: LSM Tree
+#### 🚀 Resulting system: LSM Tree
 
 Used in:
 
@@ -191,7 +193,7 @@ Used in:
 
 ---
 
-## 🌳 B-Trees (Traditional Index Structure)
+### 🌳 B-Trees (Traditional Index Structure)
 
 B-Trees store data differently:
 
@@ -240,7 +242,7 @@ B-Trees store data differently:
 
 ---
 
-## ⚔️ LSM Tree vs B-Tree
+### ⚔️ LSM Tree vs B-Tree
 
 | Feature       | LSM Tree   | B-Tree     |
 | ------------- | ---------- | ---------- |
@@ -252,7 +254,9 @@ B-Trees store data differently:
 
 ---
 
-## 🌍 Geospatial Indexing Problem
+## Specialized Indexing
+
+### 🌍 Geospatial Indexing Problem
 
 Now we extend indexes to 2D space:
 
@@ -275,7 +279,7 @@ AND long BETWEEN A AND B
 
 ---
 
-## 🧭 Geohash Approach (1D mapping of 2D space)
+#### 🧭 Geohash Approach (1D mapping of 2D space)
 
 Geohash converts:
 
@@ -347,7 +351,7 @@ If not enough results:
 
 ---
 
-## 🌳 Quadtree (Hierarchical space partitioning)
+#### 🌳 Quadtree (Hierarchical space partitioning)
 
 Instead of hashing, we split space:
 
@@ -388,7 +392,7 @@ Split until:
 
 ---
 
-## 🌐 Google S2 (Advanced geospatial system)
+#### 🌐 Google S2 (Advanced geospatial system)
 
 Instead of grid:
 
@@ -431,7 +435,7 @@ All systems solve the same problem:
 
 ---
 
-# Inverted Indexes (Full-Text Search)
+### Inverted Indexes (Full-Text Search)
 
 ## 🎯 The Problem
 
@@ -828,7 +832,126 @@ They solve fundamentally different access patterns.
 
 ---
 
-# Databases
+## Database Selection
+
+### Database Selection Mental Model
+
+## Step 1 — Is it transactional?
+
+**Question:** Does the business require ACID transactions and strong consistency?
+
+Examples:
+
+- Payments
+- Orders
+- Banking
+- Inventory
+
+**→ Yes:** Use **SQL**
+
+- PostgreSQL
+- MySQL
+
+If you also need **global distribution + strong consistency**, choose **NewSQL**.
+
+- CockroachDB
+- Google Spanner
+
+Otherwise, continue.
+
+---
+
+## Step 2 — What is the dominant access pattern?
+
+Choose the one that best describes your system.
+
+| Pattern                    | Database                                |
+| -------------------------- | --------------------------------------- |
+| Flexible JSON documents    | **Document** (MongoDB)                  |
+| Time-stamped data          | **Time-series** (TimescaleDB, InfluxDB) |
+| Relationship traversal     | **Graph** (Neo4j)                       |
+| Simple key lookups         | **Key-Value** (Redis, DynamoDB)         |
+| Massive distributed writes | **Wide-column** (Cassandra, HBase)      |
+
+---
+
+## Step 3 — Is this operational or analytical?
+
+**Operational (OLTP)**
+
+- Users create/update data
+- Low latency
+- Small reads/writes
+
+→ Stay with the database chosen above.
+
+**Analytical (OLAP)**
+
+- Reports
+- Dashboards
+- GROUP BY
+- Aggregations over billions of rows
+
+→ Use a **Data Warehouse**
+
+- BigQuery
+- Snowflake
+- ClickHouse
+
+---
+
+## Step 4 — Do users need to search text?
+
+If users type things like:
+
+- "iphone 16"
+- "error timeout"
+- "how to reset password"
+
+→ Add a **Search Engine**
+
+- Elasticsearch
+- Solr
+
+Search engines usually complement—not replace—your primary database.
+
+---
+
+# Summary
+
+```text
+Need transactions?
+│
+├── Yes
+│   ├── Global consistency? → NewSQL
+│   └── Otherwise → SQL
+│
+└── No
+    │
+    ├── JSON documents?      → Document
+    ├── Time-series data?    → Time-series
+    ├── Relationships?       → Graph
+    ├── Key lookups?         → Key-Value
+    └── Massive writes?      → Wide-column
+
+Need analytics? → OLAP
+Need text search? → Search Engine
+```
+
+## Rule of Thumb
+
+- **SQL/NewSQL** → Transactions
+- **Document** → Flexible schema
+- **Time-series** → Time-based data
+- **Graph** → Relationships
+- **Key-Value** → Ultra-fast lookups
+- **Wide-column** → Massive ingestion
+- **OLAP** → Analytics
+- **Search Engine** → Full-text search
+
+---
+
+### Database Categories
 
 | Type                                | Workload / System Pattern                                                  | Description                                                                                          | Tradeoffs                                                                                                                  | Use Cases                                                                             | Examples                               | Key Takeaways                                                                      |
 | ----------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -844,7 +967,9 @@ They solve fundamentally different access patterns.
 
 ---
 
-# Sharding (Data Partitioning)
+## Distributed Data Architecture
+
+### Sharding (Data Partitioning)
 
 ## 🎯 What is Sharding?
 
@@ -1133,7 +1258,9 @@ Most production systems combine both:
 
 ---
 
-## In-memory vs on-disk structures
+## Memory and Storage Internals
+
+### In-memory vs on-disk structures
 
 | **Characteristic**        | **In-Memory**                                                                                                  | **On-Disk**                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -1155,7 +1282,9 @@ Most production systems combine both:
 
 ---
 
-## SQL Joins and Query Design
+## Query Patterns and Access Optimization
+
+### SQL Joins and Query Design
 
 ![image.png](../assets/miscellaneous/joins.png)
 
@@ -1163,7 +1292,449 @@ SQL JOINs are fundamental operations for combining data from multiple tables in 
 
 ---
 
-# Pagination Patterns
+### N+1 Query Problem & Loading Strategies
+
+The **N+1 Query Problem** occurs when an application executes:
+
+- one query to fetch a collection
+- followed by one additional query for each item in that collection
+
+It is one of the most common performance problems in ORMs and GraphQL APIs because it generates many unnecessary database round trips.
+
+---
+
+# The Problem
+
+Suppose we want to display all users and their orders.
+
+First query:
+
+```sql
+SELECT *
+FROM users;
+```
+
+Then, for each user:
+
+```sql
+SELECT *
+FROM orders
+WHERE user_id = 1;
+
+SELECT *
+FROM orders
+WHERE user_id = 2;
+
+SELECT *
+FROM orders
+WHERE user_id = 3;
+```
+
+Total queries:
+
+```text
+1 + N
+```
+
+Examples:
+
+- 10 users → 11 queries
+- 100 users → 101 queries
+- 10,000 users → 10,001 queries
+
+The biggest cost is usually:
+
+> repeated database round trips
+
+not the SQL execution itself.
+
+---
+
+# Why It Happens
+
+The N+1 problem usually appears when relationships are loaded lazily or queried inside loops.
+
+Example:
+
+```java
+for (User user : users) {
+    user.getOrders();
+}
+```
+
+Each call may trigger another database query.
+
+---
+
+# Common Causes
+
+- ORM lazy loading
+- GraphQL nested resolvers
+- Repository calls inside loops
+- REST endpoints repeatedly fetching related entities
+
+---
+
+# Mitigation Strategies
+
+## 1. JOIN Fetching
+
+Instead of separate queries, fetch related data together.
+
+```sql
+SELECT *
+FROM users
+JOIN orders
+ON users.id = orders.user_id;
+```
+
+### Advantages
+
+- One database round trip
+- Simple implementation
+- Fast for moderate datasets
+
+### Disadvantages
+
+- Repeated parent data
+- Large joins may consume significant memory
+- Joining many relationships can create huge result sets
+
+---
+
+## 2. Batch Loading
+
+Instead of:
+
+```sql
+SELECT *
+FROM orders
+WHERE user_id = 1;
+
+SELECT *
+FROM orders
+WHERE user_id = 2;
+
+SELECT *
+FROM orders
+WHERE user_id = 3;
+```
+
+batch requests into:
+
+```sql
+SELECT *
+FROM orders
+WHERE user_id IN (1, 2, 3);
+```
+
+Flow:
+
+```text
+Users
+  ↓
+Collect IDs
+  ↓
+Single IN Query
+  ↓
+Map Results
+```
+
+This reduces:
+
+```text
+1 + N queries
+```
+
+to:
+
+```text
+2 queries
+```
+
+This is one of the most common mitigation strategies.
+
+---
+
+## 3. GraphQL DataLoader
+
+GraphQL executes each field through a separate **resolver**.
+
+For example:
+
+```graphql
+users {
+  id
+  orders {
+    id
+  }
+}
+```
+
+A typical execution looks like this:
+
+```text
+Resolve users
+
+↓
+
+SELECT * FROM users
+```
+
+Suppose the result is:
+
+```text
+User1
+User2
+User3
+```
+
+GraphQL now resolves the `orders` field for **each user** independently.
+
+Without DataLoader:
+
+```text
+Resolve Orders(User1)
+
+↓
+
+SELECT * FROM orders WHERE user_id = 1
+
+Resolve Orders(User2)
+
+↓
+
+SELECT * FROM orders WHERE user_id = 2
+
+Resolve Orders(User3)
+
+↓
+
+SELECT * FROM orders WHERE user_id = 3
+```
+
+This produces the classic **N+1 query problem**.
+
+### How DataLoader Helps
+
+Instead of executing each query immediately, DataLoader collects all requested IDs during the current GraphQL request.
+
+Rather than:
+
+```text
+User1 → Query
+
+User2 → Query
+
+User3 → Query
+```
+
+it batches them into a single query:
+
+```sql
+SELECT *
+FROM orders
+WHERE user_id IN (1, 2, 3);
+```
+
+The results are then grouped by `user_id` and returned to the corresponding resolver.
+
+```text
+Database
+
+↓
+
+Orders
+
+↓
+
+Group by user_id
+
+↓
+
+Resolver(User1)
+Resolver(User2)
+Resolver(User3)
+```
+
+From the resolver's perspective, nothing changes—it still receives only that user's orders—but the database is queried only once.
+
+### Benefits
+
+- Automatic batching
+- Request-scoped cache
+- Eliminates duplicate lookups
+- Reduces database round trips
+
+DataLoader caches results only during a single GraphQL request. It is **not** a distributed cache like Redis.
+
+---
+
+## 4. Eager Loading
+
+Relationships are loaded immediately together with the parent entity.
+
+Examples:
+
+```java
+@EntityGraph
+JOIN FETCH
+```
+
+### Advantages
+
+- Prevents many N+1 issues
+- Simpler application logic
+
+### Disadvantages
+
+- May over-fetch data
+- Higher memory usage
+
+---
+
+# Lazy vs Eager Loading
+
+| Lazy Loading                    | Eager Loading                           |
+| ------------------------------- | --------------------------------------- |
+| Loads on demand                 | Loads immediately                       |
+| Smaller initial query           | Larger initial query                    |
+| Can create N+1 queries          | Prevents many N+1 cases                 |
+| Lower initial memory usage      | Higher memory usage                     |
+| Good for optional relationships | Good when related data is always needed |
+
+Neither strategy is universally better.
+
+The correct choice depends on:
+
+- access patterns
+- relationship size
+- latency requirements
+- memory constraints
+
+---
+
+# ORM Fetch Strategies
+
+Many ORMs support configurable fetch strategies.
+
+Examples:
+
+- Hibernate
+- JPA
+- Entity Framework
+- Django ORM
+- SQLAlchemy
+
+Common techniques include:
+
+- `JOIN FETCH`
+- `EntityGraph`
+- `Include()`
+- `select_related()`
+- `prefetch_related()`
+
+---
+
+# Additional Mitigation Techniques
+
+## Projection Queries
+
+Instead of loading full entities:
+
+```sql
+SELECT id, name
+FROM users;
+```
+
+retrieve only required columns.
+
+### Benefits
+
+- Smaller payloads
+- Less memory usage
+- Faster serialization
+
+---
+
+## Pagination
+
+Instead of loading:
+
+```text
+100,000 users
+```
+
+load:
+
+```text
+50 users
+```
+
+This reduces query size and limits N+1 amplification.
+
+---
+
+## Caching
+
+Frequently requested relationships can be cached.
+
+Example:
+
+```text
+Application
+  ↓
+Redis
+  ↓
+Database
+```
+
+Caching reduces latency but does not eliminate poor query patterns.
+
+---
+
+# Strategy Comparison
+
+| Strategy      | Queries   | Best For                    | Trade-offs               |
+| ------------- | --------- | --------------------------- | ------------------------ |
+| JOIN          | 1         | Small/medium relationships  | Duplicate rows           |
+| Batch Loading | 2         | Large collections           | Additional mapping logic |
+| DataLoader    | 2         | GraphQL                     | Request-scoped only      |
+| Eager Loading | Usually 1 | Always-needed relationships | Over-fetching            |
+| Lazy Loading  | 1 + N     | Optional relationships      | N+1 risk                 |
+| Cache         | Varies    | Frequently reused data      | Invalidation complexity  |
+
+---
+
+# Typical Usage Guidance
+
+| Scenario                            | Recommended Strategy  |
+| ----------------------------------- | --------------------- |
+| GraphQL API                         | DataLoader            |
+| REST endpoint returning nested data | Batch Loading or JOIN |
+| Small related dataset               | JOIN FETCH            |
+| Large optional relationships        | Lazy Loading          |
+| Frequently reused reference data    | Cache                 |
+| Reporting/dashboard queries         | Projection Queries    |
+
+---
+
+# Key Takeaways
+
+- N+1 occurs when one query triggers many additional queries.
+- The largest cost is usually network/database round trips.
+- JOINs solve many N+1 cases with a single query.
+- Batch loading replaces many queries with a single `WHERE ... IN (...)` query.
+- GraphQL DataLoader batches and caches lookups within a request.
+- Lazy loading improves initial query cost but can accidentally create N+1 problems.
+- Eager loading prevents many N+1 issues but may over-fetch data.
+- The best strategy depends on dataset size, relationship cardinality, and access patterns.
+
+---
+
+## Pagination and Result Navigation
+
+### Pagination Patterns
 
 When datasets become large, APIs should return data in chunks instead of loading everything at once.
 
@@ -1174,7 +1745,7 @@ The 2 main strategies are:
 
 ---
 
-# 1. Offset Pagination
+#### 1. Offset Pagination
 
 Uses:
 
@@ -1240,7 +1811,7 @@ Also inconsistent with live data:
 
 ---
 
-# 2. Cursor / Keyset Pagination
+#### 2. Cursor / Keyset Pagination
 
 Instead of positions, pagination continues from a key.
 
@@ -1307,7 +1878,7 @@ ORDER BY created_at, id
 
 ---
 
-# Keyset vs Cursor
+#### Keyset vs Cursor
 
 These terms are related but not identical.
 
@@ -1333,7 +1904,7 @@ The cursor usually stores the keyset internally.
 
 ---
 
-# Comparison Table
+#### Comparison Table
 
 | Aspect                        | Offset           | Cursor/Keyset          |
 | ----------------------------- | ---------------- | ---------------------- |
@@ -1348,7 +1919,7 @@ The cursor usually stores the keyset internally.
 
 ---
 
-# Decision Framework
+#### Decision Framework
 
 ## Use Offset when:
 
@@ -1382,7 +1953,7 @@ Typical examples:
 
 ---
 
-# Rule of Thumb
+#### Rule of Thumb
 
 ## Offset
 

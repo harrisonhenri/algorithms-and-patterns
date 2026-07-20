@@ -301,8 +301,8 @@ Team struggles; more rewrites
 
 Domain-driven design and event-driven architecture are **complementary**:
 
-**DDD provides:** Domain modeling, bounded contexts, language clarity
-**EDA provides:** Asynchronous communication, event sourcing, scalability
+- **DDD provides:** Domain modeling, bounded contexts, language clarity
+- **EDA provides:** Asynchronous communication, event sourcing, scalability
 
 **Integration:**
 

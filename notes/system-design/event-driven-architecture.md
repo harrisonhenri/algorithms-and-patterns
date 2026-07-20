@@ -24,7 +24,759 @@ There are many forms of working with events:
 
 ## Event sourcing
 
-![Event-Driven Architecture](../../assets/system-design/eda.png)
+![Event-Driven Architecture](../assets/microservices/eda.png)
+
+Event Sourcing is an architectural pattern where the system stores events that describe changes instead of storing only the current state.
+
+The main idea:
+
+> The source of truth is not the current state of the database. The source of truth is the sequence of events that produced that state.
+
+Instead of:
+
+```text
+Database
+
+↓
+
+Current State
+```
+
+Event Sourcing stores:
+
+```text
+Event Store
+
+↓
+
+History of Changes
+
+↓
+
+Current State
+```
+
+---
+
+# Traditional Application vs Event Sourcing
+
+## Traditional Model
+
+A traditional application stores the latest state.
+
+Example:
+
+```text
+Account Table
+
+id     balance
+----------------
+123    120
+```
+
+The database only knows:
+
+```text
+Current balance = 120
+```
+
+The previous operations are lost.
+
+---
+
+## Event Sourcing Model
+
+The database stores every business event.
+
+Example:
+
+```text
+Event Store
+
+AccountCreated
+
+↓
+
+MoneyDeposited +100
+
+↓
+
+MoneyWithdrawn -30
+
+↓
+
+MoneyDeposited +50
+```
+
+The current state is calculated:
+
+```text
+100 - 30 + 50 = 120
+```
+
+The history is preserved.
+
+---
+
+# Core Concepts
+
+## Event
+
+An event represents a fact that already happened.
+
+Characteristics:
+
+- Immutable
+- Historical
+- Cannot be changed
+- Written once
+
+Examples:
+
+```text
+UserRegistered
+
+OrderCreated
+
+PaymentProcessed
+
+MoneyDeposited
+```
+
+Events are usually named in the past tense because they describe completed actions.
+
+---
+
+## Event Store
+
+The Event Store is the database that stores events in order.
+
+Example:
+
+```text
+Event Store
+
+Aggregate ID | Version | Event
+---------------------------------------
+Account-123  | 1       | Created
+Account-123  | 2       | Deposited(100)
+Account-123  | 3       | Withdrawn(30)
+Account-123  | 4       | Deposited(50)
+```
+
+Important properties:
+
+- Append-only
+- Ordered sequence
+- Immutable records
+
+The Event Store becomes the source of truth.
+
+---
+
+# Command Side
+
+The command side handles requests that change the system.
+
+Example:
+
+```text
+User
+
+↓
+
+UI
+
+↓
+
+Command
+
+↓
+
+Decider
+```
+
+---
+
+## Command
+
+A command is a request to perform an action.
+
+Examples:
+
+```text
+CreateAccount
+
+WithdrawMoney
+
+CancelOrder
+```
+
+A command represents an intention.
+
+It is not yet a fact.
+
+Example:
+
+```text
+WithdrawMoney(50)
+```
+
+means:
+
+> "Please withdraw 50"
+
+It does not mean the withdrawal happened.
+
+---
+
+## Decider
+
+The decider contains business rules.
+
+It decides:
+
+- If the command is valid
+- Which events should be generated
+
+Example:
+
+Input:
+
+```text
+Command:
+
+WithdrawMoney(50)
+```
+
+Current state:
+
+```text
+Balance = 100
+```
+
+Decision:
+
+```text
+Allowed
+```
+
+Produces:
+
+```text
+MoneyWithdrawn(50)
+```
+
+---
+
+# Event Flow
+
+Complete write flow:
+
+```text
+User
+
+↓
+
+Command
+
+↓
+
+Decider
+
+↓
+
+Event
+
+↓
+
+Event Store
+```
+
+Example:
+
+```text
+WithdrawMoney(50)
+
+↓
+
+Check balance
+
+↓
+
+MoneyWithdrawn(50)
+
+↓
+
+Save event
+```
+
+The system never directly updates the state.
+
+It appends a new event.
+
+---
+
+# Rebuilding State
+
+Because events are the source of truth, the current state can always be recreated.
+
+Example:
+
+```text
+Event Store
+
+AccountCreated
+
++
+
+Deposited(100)
+
++
+
+Withdrawn(30)
+
++
+
+Deposited(50)
+
+        ↓
+
+Projection / Aggregate Replay
+
+        ↓
+
+Balance = 120
+```
+
+This process is called:
+
+- Event Replay
+- State Reconstruction
+
+---
+
+# Query Side (Read Model)
+
+Reading from the Event Store directly is usually inefficient.
+
+Instead, events are transformed into optimized read models.
+
+```text
+Event Store
+
+↓
+
+Projection
+
+↓
+
+Read Model
+
+↓
+
+Query
+```
+
+---
+
+## Projection
+
+A projection consumes events and transforms them into state.
+
+Example:
+
+Events:
+
+```text
+OrderCreated
+
+OrderPaid
+
+OrderShipped
+```
+
+Projection:
+
+```text
+Order Status Projection
+```
+
+Creates:
+
+```text
+Order Table
+
+id     status
+---------------
+123    SHIPPED
+```
+
+The projection answers:
+
+> "How should I represent these events for this use case?"
+
+---
+
+## Read Model
+
+The read model is the data optimized for queries.
+
+Examples:
+
+```text
+SQL Database
+
+Document Database
+
+Elasticsearch
+
+Data Warehouse
+```
+
+Different read models can exist for different needs.
+
+Example:
+
+```text
+Event Store
+
+       |
+       |
+       +----------------+
+       |                |
+       ↓                ↓
+
+Order Search       Analytics
+
+ElasticSearch      Data Warehouse
+```
+
+---
+
+# CQRS (Command Query Responsibility Segregation)
+
+Event Sourcing is often combined with CQRS.
+
+CQRS separates:
+
+- Writing
+- Reading
+
+---
+
+## Command Side
+
+Responsible for:
+
+- Validation
+- Business rules
+- Creating events
+
+```text
+Command
+
+↓
+
+Domain Logic
+
+↓
+
+Event Store
+```
+
+---
+
+## Query Side
+
+Responsible for:
+
+- Fast reads
+- Optimized views
+
+```text
+Read Request
+
+↓
+
+Read Model
+
+↓
+
+Response
+```
+
+---
+
+# Complete Architecture
+
+```text
+                 COMMAND SIDE
+
+User
+ |
+ v
+Command
+ |
+ v
+Decider
+ |
+ v
+Events
+ |
+ v
+Event Store
+ |
+ |
+ +--------------------------------+
+                                  |
+                                  v
+
+                           PROJECTIONS
+
+                                  |
+                                  v
+
+                 +----------------+----------------+
+                 |                |                |
+                 v                v                v
+
+            SQL View        Search Index     Analytics DB
+
+                 |
+                 v
+
+              Queries
+```
+
+---
+
+# Reactions / Event Handlers
+
+Not every consumer creates a read model.
+
+Some components react to events and trigger side effects.
+
+Example:
+
+```text
+PaymentCompleted
+
+↓
+
+Reaction
+
+↓
+
+Send Email
+
+↓
+
+Update External API
+```
+
+Examples:
+
+- Email notifications
+- Payment gateways
+- Message brokers
+- External integrations
+
+---
+
+# Projection vs Reaction
+
+| Projection          | Reaction                  |
+| ------------------- | ------------------------- |
+| Builds read state   | Performs side effects     |
+| Creates read models | Calls external systems    |
+| Usually internal    | Often integration-focused |
+| Example: Order View | Example: Send Email       |
+
+---
+
+# Advantages
+
+## Complete History
+
+Every change is preserved.
+
+Example:
+
+```text
+Account balance changed because:
+
+Deposit
+Withdrawal
+Refund
+Correction
+```
+
+---
+
+## Auditability
+
+Useful in domains requiring history:
+
+- Banking
+- Healthcare
+- Finance
+- Insurance
+
+---
+
+## Rebuild Read Models
+
+If a projection has a bug:
+
+```text
+Delete Read Model
+
+↓
+
+Replay Events
+
+↓
+
+Create New Read Model
+```
+
+No data is lost.
+
+---
+
+## Multiple Views
+
+The same events can create different projections.
+
+Example:
+
+```text
+Order Events
+
+       |
+       +------------+
+       |            |
+       v            v
+
+Customer View   Finance View
+```
+
+---
+
+# Disadvantages
+
+## Increased Complexity
+
+You now manage:
+
+- Event storage
+- Projections
+- Event versioning
+- Replay processes
+
+---
+
+## Event Evolution
+
+Events cannot easily change.
+
+Bad:
+
+```json
+{
+  "amount": 100
+}
+```
+
+Later:
+
+```json
+{
+  "value": 100,
+  "currency": "USD"
+}
+```
+
+Old events still exist.
+
+Solutions:
+
+- Event versioning
+- Upcasting
+- Migration strategies
+
+---
+
+## Eventual Consistency
+
+Read models are updated asynchronously.
+
+Example:
+
+```text
+Command
+
+↓
+
+Event Saved
+
+↓
+
+Projection Updates
+
+↓
+
+Read Model Updated
+```
+
+There may be a short delay.
+
+---
+
+# When to Use Event Sourcing
+
+Good fit:
+
+- Complex business rules
+- Need complete audit history
+- Financial systems
+- Workflow systems
+- Systems with many derived views
+
+Examples:
+
+- Banking transactions
+- Order lifecycle
+- Inventory movements
+- Payment systems
+
+---
+
+# When Not to Use It
+
+Avoid when:
+
+- CRUD is simple
+- History is not important
+- Team lacks operational maturity
+- Immediate consistency is mandatory everywhere
+
+A simple relational database is often better.
+
+---
+
+# Key Takeaways
+
+- Event Sourcing stores events, not just current state.
+- The Event Store is the source of truth.
+- Commands request changes.
+- Deciders validate commands and produce events.
+- Projections transform events into read models.
+- Reactions trigger side effects.
+- CQRS separates write models from read models.
+- Event replay allows rebuilding state and views.
+- The trade-off is increased complexity and eventual consistency.
 
 ## Delayed and scheduled messages
 
@@ -302,6 +1054,3 @@ Event-driven architecture works best when **domain boundaries are clear**. If do
 **See also:** [Domain-Driven Design](./domain-driven-design.md#architecture-quality-depends-on-domain-model-quality) for bounded context design and context mapping patterns.
 
 ---
-
-![image.png](../assets/microservices/system-design-cheat-sheet-1.png)
-![image.png](../assets/microservices/system-design-cheat-sheet-2.png)

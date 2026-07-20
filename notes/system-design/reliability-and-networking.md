@@ -560,18 +560,18 @@ class Node:
     self.node_id = node_id
     self.incarnation = 1
     self.is_leader = False
-    
+
   def recover_from_crash(self):
     # Node restarted
     self.incarnation += 1
     self.is_leader = False
-    
+
   def become_leader(self):
     self.incarnation += 1
     self.is_leader = True
     self.current_token = (self.incarnation, time.monotonic())
     # Broadcast leadership claim with new incarnation
-    
+
   def send_write(self, data):
     return {
       "node_id": self.node_id,
@@ -591,12 +591,12 @@ def accept_write(write):
 
 ### Comparison: Clocks, Tokens, Incarnation Numbers
 
-| Mechanism | Scope | Use Case | Problem Solved |
-|---|---|---|---|
-| **Time-of-day clocks** | Single machine | Scheduling, logging | Relies on external sync; can jump backward |
-| **Monotonic clocks** | Single machine | Measuring elapsed time | Immune to NTP adjustments; can't compare across machines |
-| **Fencing tokens** | System-wide | Distributed locks | Prevents stale leaders from corrupting state |
-| **Incarnation numbers** | Per-node | Leadership after restart | Distinguishes old leader from new after node recovery |
+| Mechanism               | Scope          | Use Case                 | Problem Solved                                           |
+| ----------------------- | -------------- | ------------------------ | -------------------------------------------------------- |
+| **Time-of-day clocks**  | Single machine | Scheduling, logging      | Relies on external sync; can jump backward               |
+| **Monotonic clocks**    | Single machine | Measuring elapsed time   | Immune to NTP adjustments; can't compare across machines |
+| **Fencing tokens**      | System-wide    | Distributed locks        | Prevents stale leaders from corrupting state             |
+| **Incarnation numbers** | Per-node       | Leadership after restart | Distinguishes old leader from new after node recovery    |
 
 ---
 
@@ -857,33 +857,132 @@ For comprehensive treatment of CAP theorem and partition scenarios, see [consens
 | **API Gateway**                  | Manage and orchestrate APIs          | API boundary / edge • L7 (Application)         | Client → APIs/microservices  | API-aware routing            | OAuth, rate limiting, observability, transformations | Usually stateless            | Kong, Tyk, Apigee            |
 | **Load Balancer**                | Distribute traffic across instances  | Front of server pools • L4 and/or L7           | Client → server pool         | Traffic distribution-focused | Health checks, failover, balancing algorithms        | Stateless                    | AWS ALB/NLB, HAProxy, F5     |
 
-### 1. Reverse Proxy vs Load Balancer
+### 1. API Gateway vs Reverse Proxy vs Load Balancer
 
-This is the biggest conceptual overlap.
+These concepts overlap heavily in modern cloud infrastructure, but they optimize for different responsibilities.
 
-A reverse proxy can:
+| Component         | Primary Concern                     | Typical Layer | Main Responsibility               | API Awareness | Common Features                                              |
+| ----------------- | ----------------------------------- | ------------- | --------------------------------- | ------------- | ------------------------------------------------------------ |
+| **Load Balancer** | Availability and distribution       | L4 and/or L7  | Spread traffic across instances   | Low to medium | Health checks, failover, balancing algorithms                |
+| **Reverse Proxy** | Traffic mediation and edge handling | Mostly L7     | Front and manage backend services | Medium        | TLS termination, caching, rewrites, compression              |
+| **API Gateway**   | API governance and orchestration    | L7            | Manage APIs and enforce policies  | High          | OAuth/JWT, rate limiting, quotas, analytics, transformations |
 
-- load balance
-- cache
-- terminate TLS
-- rewrite requests
-- authenticate users
+### Mental Model
 
-A load balancer can:
+A useful distinction:
 
-- reverse proxy traffic
-- terminate TLS
-- do path-based routing
-
-Modern infrastructure blurred the boundary.
+- **Load balancer** → decides _which server_ receives traffic
+- **Reverse proxy** → decides _how traffic should be handled_
+- **API gateway** → decides _how APIs should be exposed and governed_
 
 Example:
 
-- [Envoy Proxy](https://www.envoyproxy.io/?utm_source=chatgpt.com) acts simultaneously as:
+```text
+Load Balancer:
+  Route TCP connections evenly across servers
+
+Reverse Proxy:
+  Rewrite /api → /internal/v1/api
+  Terminate TLS
+  Cache responses
+
+API Gateway:
+  Validate JWT
+  Enforce rate limits
+  Transform API payloads
+  Track API usage metrics
+```
+
+### Key Difference in Abstraction Level
+
+An API Gateway usually operates at a higher abstraction level than a reverse proxy or load balancer.
+
+A reverse proxy primarily focuses on:
+
+- HTTP traffic handling
+- Edge security
+- Routing requests to backend services
+
+An API Gateway additionally understands:
+
+- API products
+- Consumers and tenants
+- Authentication/authorization policies
+- Developer access
+- Quotas and monetization
+- API lifecycle governance
+
+This is why API gateways are common in:
+
+- Public APIs
+- Multi-tenant SaaS platforms
+- Microservice platforms
+- External developer ecosystems
+
+---
+
+### Layered Deployment Example
+
+In real systems, these components are often combined rather than used independently.
+
+Example:
+
+```text
+Client
+  ↓
+CDN
+  ↓
+Load Balancer
+  ↓
+API Gateway
+  ↓
+Reverse Proxy / Ingress
+  ↓
+Microservices
+```
+
+Responsibilities:
+
+- **Load Balancer**
+  - Distributes traffic across gateway instances
+  - Detects unhealthy nodes
+  - Improves availability
+
+- **API Gateway**
+  - Authenticates users/services
+  - Applies rate limiting and quotas
+  - Performs API transformations and observability
+
+- **Reverse Proxy / Ingress**
+  - Routes traffic internally
+  - Terminates TLS
+  - Handles service-specific routing rules
+
+---
+
+### Why the Boundary Is Blurry
+
+Modern infrastructure platforms often combine all three roles.
+
+Examples:
+
+- [NGINX](https://nginx.org/?utm_source=chatgpt.com)
   - reverse proxy
-  - service mesh proxy
   - load balancer
-  - API edge
+  - API gateway features through plugins/modules
+
+- [Envoy Proxy](https://www.envoyproxy.io/?utm_source=chatgpt.com)
+  - reverse proxy
+  - service mesh data plane
+  - advanced L7 load balancing
+  - API edge functionality
+
+- Cloud providers:
+  - AWS ALB + API Gateway
+  - GCP Load Balancer + Apigee
+  - Azure Front Door + API Management
+
+These are architectural responsibilities, not mutually exclusive product categories.
 
 ---
 
@@ -978,18 +1077,6 @@ Higher-layer routing gives more flexibility, but generally adds more processing 
 
 ---
 
-## Resumo (SLA / SLO / SLI)
-
-# Resumo
-
-| Métrica | O que é                         | Foco          |
-| ------- | ------------------------------- | ------------- |
-| **SLA** | Compromisso com o cliente       | Externo       |
-| **SLO** | Meta interna para cumprir o SLA | Interno       |
-| **SLI** | Medição real do desempenho      | Monitoramento |
-
----
-
 ## Resiliency, HA, fault tolerance
 
 # Resiliency, HA, Fault tolerance
@@ -1012,14 +1099,14 @@ Remember: a **fault** is a component deviating from spec, while a **failure** is
 
 ## Failover types
 
-| **Failover Type**            | **Description (includes cost and context)**                                                                                                                                           | **Standby Mode (Readiness & Activity)**                                  | **Recovery Speed (RTO) / Data Loss Risk (RPO)**         | **Typical Cost**        | **Typical Use Cases**                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------- |
-| **Active–Active**            | Multiple nodes handle requests simultaneously. Provides load balancing and instant failover. Highly resilient but complex and costly due to synchronization and consistency overhead. | All nodes fully **active** (no standby)                                  | **RTO:** Near-zero**RPO:** Very low                     | 💰💰💰 (High)           | Web clusters, distributed caches (Redis, DynamoDB), message brokers (Kafka) |
-| **Active–Passive (Cold)**    | Standby is powered off or manually started after failure. Simplest and cheapest, but slow recovery and higher risk of data loss.                                                      | **Cold** – Standby **inactive/off**, requires manual or scripted start   | **RTO:** Hours**RPO:** High                             | 💰 (Low)                | Non-critical workloads, dev/test, cost-optimized setups                     |
-| **Active–Passive (Warm)**    | Standby runs partially and syncs periodically. Balanced cost vs. recovery time; small chance of losing recent data.                                                                   | **Warm** – Standby **semi-active**, periodically synchronized            | **RTO:** Minutes**RPO:** Medium                         | 💰💰 (Moderate)         | Disaster recovery sites, RDS Multi-AZ, secondary cloud regions              |
-| **Active–Passive (Hot)**     | Fully synchronized mirror ready for instant takeover. High cost but minimal downtime and data loss.                                                                                   | **Hot** – Standby **active**, fully synchronized but not serving traffic | **RTO:** Seconds**RPO:** Near-zero                      | 💰💰💰 (High)           | Mission-critical systems (banking, aviation, telecom)                       |
-| **N+1 Redundancy**           | One or more standby nodes protect several active nodes. Shares spare capacity, reducing cost while keeping reliability.                                                               | **Warm/Shared** – Standby covers multiple actives                        | **RTO:** Seconds–Minutes**RPO:** Low                    | 💰💰 (Moderate)         | Load balancers, clustered web servers                                       |
-| **Geo-Distributed Failover** | Systems replicated across regions for large-scale disaster recovery. Extremely resilient but adds latency and replication cost.                                                       | **Warm or Hot** – Remote standby varies by sync mode                     | **RTO:** Seconds–Minutes**RPO:** Depends on replication | 💰💰💰 (High–Very High) | Multi-region cloud deployments, global services                             |
+| **Failover Type**            | **Description (includes cost and context)**                                                                                                                                           | **Standby Mode (Readiness & Activity)**                                  | **Recovery Speed (RTO) / Data Loss Risk (RPO)**          | **Typical Cost**        | **Typical Use Cases**                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------- |
+| **Active–Active**            | Multiple nodes handle requests simultaneously. Provides load balancing and instant failover. Highly resilient but complex and costly due to synchronization and consistency overhead. | All nodes fully **active** (no standby)                                  | **RTO:** Near-zero/**RPO:** Very low                     | 💰💰💰 (High)           | Web clusters, distributed caches (Redis, DynamoDB), message brokers (Kafka) |
+| **Active–Passive (Cold)**    | Standby is powered off or manually started after failure. Simplest and cheapest, but slow recovery and higher risk of data loss.                                                      | **Cold** – Standby **inactive/off**, requires manual or scripted start   | **RTO:** Hours/**RPO:** High                             | 💰 (Low)                | Non-critical workloads, dev/test, cost-optimized setups                     |
+| **Active–Passive (Warm)**    | Standby runs partially and syncs periodically. Balanced cost vs. recovery time; small chance of losing recent data.                                                                   | **Warm** – Standby **semi-active**, periodically synchronized            | **RTO:** Minutes/**RPO:** Medium                         | 💰💰 (Moderate)         | Disaster recovery sites, RDS Multi-AZ, secondary cloud regions              |
+| **Active–Passive (Hot)**     | Fully synchronized mirror ready for instant takeover. High cost but minimal downtime and data loss.                                                                                   | **Hot** – Standby **active**, fully synchronized but not serving traffic | **RTO:** Seconds/**RPO:** Near-zero                      | 💰💰💰 (High)           | Mission-critical systems (banking, aviation, telecom)                       |
+| **N+1 Redundancy**           | One or more standby nodes protect several active nodes. Shares spare capacity, reducing cost while keeping reliability.                                                               | **Warm/Shared** – Standby covers multiple actives                        | **RTO:** Seconds–Minutes/**RPO:** Low                    | 💰💰 (Moderate)         | Load balancers, clustered web servers                                       |
+| **Geo-Distributed Failover** | Systems replicated across regions for large-scale disaster recovery. Extremely resilient but adds latency and replication cost.                                                       | **Warm or Hot** – Remote standby varies by sync mode                     | **RTO:** Seconds–Minutes/**RPO:** Depends on replication | 💰💰💰 (High–Very High) | Multi-region cloud deployments, global services                             |
 
 ## Disaster recovery (RTO, RPO)
 
@@ -1043,15 +1130,6 @@ Disaster recovery defines how quickly systems recover and how much data can be l
 - Choose **pilot light** when core services must recover faster but full duplication is too expensive.
 - Choose **warm standby** for balanced resilience/cost with predictable recovery.
 - Choose **multi-site** for mission-critical services where both downtime and data loss must be minimal.
-
-### Should this be part of failover modes?
-
-Yes. Disaster recovery strategies are the regional/site-level extension of failover modes:
-
-- Failover mode explains **how traffic/service switches**
-- DR strategy explains **how much environment exists before failure**
-
-Together they define the complete availability posture.
 
 ## SLA, SLO e SLI
 

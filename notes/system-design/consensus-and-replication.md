@@ -296,7 +296,7 @@ CAP is **specifically about**:
 
 > **Behavior during network partitions**
 
-In non-partitioned system, consistency and availability both possible.
+In non-partitioned system, consistency and availability are both possible.
 
 ---
 
