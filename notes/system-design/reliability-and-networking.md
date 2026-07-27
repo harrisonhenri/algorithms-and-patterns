@@ -21,6 +21,8 @@ Unlike local programs, distributed systems **cannot always distinguish** between
 - a lost packet
 - or a delayed response
 
+**See also:** [consensus-and-replication.md#system-models-and-theoretical-foundations](./consensus-and-replication.md#system-models-and-theoretical-foundations) for formal system models (Synchronous, Partially Synchronous, Asynchronous) and theoretical impossibility results.
+
 ---
 
 ## Single-Machine vs Distributed Systems
@@ -511,6 +513,93 @@ Stale leaders cannot corrupt state
 
 ---
 
+## Incarnation Numbers
+
+Incarnation numbers are monotonically increasing counters (separate from wall-clock time) that track the **generation** of a node or leader.
+
+### Problem It Solves
+
+When a node crashes and restarts:
+
+```
+Old leader:        token=5, incarnation=1, sends writes
+Network partition: (old leader isolated)
+New leader:        token=5, incarnation=2, claims authority
+
+Without incarnation numbers:
+  - Both have token=5
+  - Which one is the real leader?
+  - Corruption possible
+
+With incarnation numbers:
+  - Old leader: incarnation=1 → rejected
+  - New leader: incarnation=2 → accepted
+  - Clear ordering prevents confusion
+```
+
+### How It Works
+
+1. **Node starts:** `incarnation = 1`
+2. **Node crashes/restarts:** `incarnation = 2`
+3. **Becomes leader:** Increment incarnation before claiming leadership
+4. **Send commands:** Include incarnation with each operation
+5. **Replicas verify:** Only accept operations from highest incarnation
+
+### Use Cases
+
+- **Leadership transitions:** Distinguish old crashed leader from new leader
+- **Failure recovery:** After node restart, stale replicas reject old commands
+- **Lease renewal:** When renewing a lease after restart, increment incarnation
+- **Cluster membership:** Track node generations in gossip/SWIM protocols
+
+### Example
+
+```python
+class Node:
+  def __init__(self, node_id):
+    self.node_id = node_id
+    self.incarnation = 1
+    self.is_leader = False
+
+  def recover_from_crash(self):
+    # Node restarted
+    self.incarnation += 1
+    self.is_leader = False
+
+  def become_leader(self):
+    self.incarnation += 1
+    self.is_leader = True
+    self.current_token = (self.incarnation, time.monotonic())
+    # Broadcast leadership claim with new incarnation
+
+  def send_write(self, data):
+    return {
+      "node_id": self.node_id,
+      "incarnation": self.incarnation,
+      "data": data,
+      "timestamp": time.time()
+    }
+
+# On the replica side
+def accept_write(write):
+  if write["incarnation"] < node.current_incarnation:
+    # Stale write from crashed leader
+    reject()
+  else:
+    accept()
+```
+
+### Comparison: Clocks, Tokens, Incarnation Numbers
+
+| Mechanism               | Scope          | Use Case                 | Problem Solved                                           |
+| ----------------------- | -------------- | ------------------------ | -------------------------------------------------------- |
+| **Time-of-day clocks**  | Single machine | Scheduling, logging      | Relies on external sync; can jump backward               |
+| **Monotonic clocks**    | Single machine | Measuring elapsed time   | Immune to NTP adjustments; can't compare across machines |
+| **Fencing tokens**      | System-wide    | Distributed locks        | Prevents stale leaders from corrupting state             |
+| **Incarnation numbers** | Per-node       | Leadership after restart | Distinguishes old leader from new after node recovery    |
+
+---
+
 # Process Pauses and Garbage Collection
 
 ## Nodes May Pause Without Failing
@@ -618,67 +707,7 @@ Key principle:
 
 ## Membership Protocols (SWIM and Gossip)
 
-Membership protocols maintain cluster views and support failure detection at scale.
-
-### SWIM (Scalable Weakly-consistent Infection-style Membership)
-
-Core ideas:
-
-- Each node periodically probes a random peer
-- If direct probe fails, node asks indirect peers to probe (indirect ping)
-- Nodes spread membership updates using gossip
-- Failures move through states like **alive -> suspect -> dead**
-
-Why it works well:
-
-- Decentralized (no single coordinator)
-- Constant-size probing work per node per round
-- Scales to large clusters with bounded overhead
-
-Typical uses:
-
-- Service discovery and health membership in large fleets
-- Consul-style cluster membership
-
----
-
-### Gossip-Based Membership
-
-Gossip protocols disseminate membership state probabilistically:
-
-- Nodes periodically exchange partial views
-- Updates spread epidemically through the cluster
-- Convergence is eventually consistent
-
-Strengths:
-
-- Highly fault tolerant
-- Easy horizontal scale
-- Handles frequent node churn
-
-Trade-off:
-
-- Temporary view divergence is expected
-- Membership accuracy converges over time rather than instantly
-
-Examples:
-
-- Cassandra-style peer dissemination
-- Akka cluster membership dissemination
-
----
-
-### Comparison
-
-| Approach                      | Detection Model                                 | Overhead Pattern                                | Consistency of View                                    | Failure Mode Risk                                       |
-| ----------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
-| Centralized heartbeat manager | Single observer and heartbeat timeout           | Central bottleneck grows with cluster size      | Fast if manager healthy                                | Single point of failure and overload                    |
-| Generic gossip membership     | Probabilistic peer exchange                     | Distributed, typically moderate per round       | Eventual consistency                                   | Temporary divergence during churn                       |
-| SWIM-style membership         | Direct + indirect probes + gossip dissemination | Constant probing work per node + gossip updates | Eventual consistency with strong practical convergence | False suspicions still possible under severe partitions |
-
-Key takeaway:
-
-> **In distributed systems, membership is usually probabilistic and suspicion-based, not absolute truth.**
+For detailed treatment of membership protocols including SWIM, gossip-based dissemination, and comparisons, see [distributed-systems-algorithms.md#membership-protocols-swim-and-gossip](distributed-systems-algorithms.md#membership-protocols-swim-and-gossip).
 
 ---
 
@@ -746,70 +775,9 @@ Most distributed systems (databases, message brokers, cloud infrastructure) assu
 
 ---
 
-# System Models and Assumptions
+## System Models and Assumptions
 
-Different distributed systems are designed for different **failure models** and **timing assumptions**.
-
----
-
-## Synchronous Model
-
-Assumes:
-
-- **Bounded message delays** — messages arrive within max time D
-- **Bounded processing time** — nodes process messages within time P
-- **Bounded clock drift** — clocks drift by at most r
-
-Implications:
-
-- If no response within D+P+margin → node is definitely dead
-- Can implement reliable failure detection
-- Can guarantee safety properties
-
-Reality:
-
-- **Very strong assumptions**
-- **Rarely true in practice**
-- Real systems have unbounded delays
-
----
-
-## Partially Synchronous Model
-
-Most realistic model:
-
-- Usually behaves synchronously
-- Occasionally experiences:
-  - Long pauses
-  - Network partitions
-  - Extreme spikes in latency
-  - Unexpected delays
-
-Characteristics:
-
-- Most algorithms designed for this model
-- Assumes synchrony usually, but not always
-- Practical consensus algorithms (Raft, Paxos) work here
-
----
-
-## Asynchronous Model
-
-Assumes:
-
-- **No timing guarantees at all**
-- Messages can be arbitrarily delayed
-- Nodes can be arbitrarily slow
-
-Implications:
-
-- Impossible to reliably distinguish slow from dead
-- Cannot implement reliable failure detection
-- Many algorithms impossible to solve
-
-Famous result:
-
-> **FLP Impossibility Theorem** — Consensus is impossible in asynchronous systems with even one crash fault
+For detailed treatment of synchronous, partially synchronous, and asynchronous models — including implications and the FLP Impossibility Theorem — see [consensus-and-replication.md#system-models-and-theoretical-foundations](consensus-and-replication.md#system-models-and-theoretical-foundations).
 
 ---
 
@@ -874,7 +842,7 @@ Rationale:
 - Better to be consistent and unavailable
 - Users prefer "service down" to "wrong data"
 
----
+For comprehensive treatment of CAP theorem and partition scenarios, see [consensus-and-replication.md#cap-theorem](consensus-and-replication.md#cap-theorem). For split-brain prevention strategies, see [distributed-systems-algorithms.md#split-brain-scenarios](distributed-systems-algorithms.md#split-brain-scenarios).
 
 ---
 
@@ -889,33 +857,132 @@ Rationale:
 | **API Gateway**                  | Manage and orchestrate APIs          | API boundary / edge • L7 (Application)         | Client → APIs/microservices  | API-aware routing            | OAuth, rate limiting, observability, transformations | Usually stateless            | Kong, Tyk, Apigee            |
 | **Load Balancer**                | Distribute traffic across instances  | Front of server pools • L4 and/or L7           | Client → server pool         | Traffic distribution-focused | Health checks, failover, balancing algorithms        | Stateless                    | AWS ALB/NLB, HAProxy, F5     |
 
-### 1. Reverse Proxy vs Load Balancer
+### 1. API Gateway vs Reverse Proxy vs Load Balancer
 
-This is the biggest conceptual overlap.
+These concepts overlap heavily in modern cloud infrastructure, but they optimize for different responsibilities.
 
-A reverse proxy can:
+| Component         | Primary Concern                     | Typical Layer | Main Responsibility               | API Awareness | Common Features                                              |
+| ----------------- | ----------------------------------- | ------------- | --------------------------------- | ------------- | ------------------------------------------------------------ |
+| **Load Balancer** | Availability and distribution       | L4 and/or L7  | Spread traffic across instances   | Low to medium | Health checks, failover, balancing algorithms                |
+| **Reverse Proxy** | Traffic mediation and edge handling | Mostly L7     | Front and manage backend services | Medium        | TLS termination, caching, rewrites, compression              |
+| **API Gateway**   | API governance and orchestration    | L7            | Manage APIs and enforce policies  | High          | OAuth/JWT, rate limiting, quotas, analytics, transformations |
 
-- load balance
-- cache
-- terminate TLS
-- rewrite requests
-- authenticate users
+### Mental Model
 
-A load balancer can:
+A useful distinction:
 
-- reverse proxy traffic
-- terminate TLS
-- do path-based routing
-
-Modern infrastructure blurred the boundary.
+- **Load balancer** → decides _which server_ receives traffic
+- **Reverse proxy** → decides _how traffic should be handled_
+- **API gateway** → decides _how APIs should be exposed and governed_
 
 Example:
 
-- [Envoy Proxy](https://www.envoyproxy.io/?utm_source=chatgpt.com) acts simultaneously as:
+```text
+Load Balancer:
+  Route TCP connections evenly across servers
+
+Reverse Proxy:
+  Rewrite /api → /internal/v1/api
+  Terminate TLS
+  Cache responses
+
+API Gateway:
+  Validate JWT
+  Enforce rate limits
+  Transform API payloads
+  Track API usage metrics
+```
+
+### Key Difference in Abstraction Level
+
+An API Gateway usually operates at a higher abstraction level than a reverse proxy or load balancer.
+
+A reverse proxy primarily focuses on:
+
+- HTTP traffic handling
+- Edge security
+- Routing requests to backend services
+
+An API Gateway additionally understands:
+
+- API products
+- Consumers and tenants
+- Authentication/authorization policies
+- Developer access
+- Quotas and monetization
+- API lifecycle governance
+
+This is why API gateways are common in:
+
+- Public APIs
+- Multi-tenant SaaS platforms
+- Microservice platforms
+- External developer ecosystems
+
+---
+
+### Layered Deployment Example
+
+In real systems, these components are often combined rather than used independently.
+
+Example:
+
+```text
+Client
+  ↓
+CDN
+  ↓
+Load Balancer
+  ↓
+API Gateway
+  ↓
+Reverse Proxy / Ingress
+  ↓
+Microservices
+```
+
+Responsibilities:
+
+- **Load Balancer**
+  - Distributes traffic across gateway instances
+  - Detects unhealthy nodes
+  - Improves availability
+
+- **API Gateway**
+  - Authenticates users/services
+  - Applies rate limiting and quotas
+  - Performs API transformations and observability
+
+- **Reverse Proxy / Ingress**
+  - Routes traffic internally
+  - Terminates TLS
+  - Handles service-specific routing rules
+
+---
+
+### Why the Boundary Is Blurry
+
+Modern infrastructure platforms often combine all three roles.
+
+Examples:
+
+- [NGINX](https://nginx.org/?utm_source=chatgpt.com)
   - reverse proxy
-  - service mesh proxy
   - load balancer
-  - API edge
+  - API gateway features through plugins/modules
+
+- [Envoy Proxy](https://www.envoyproxy.io/?utm_source=chatgpt.com)
+  - reverse proxy
+  - service mesh data plane
+  - advanced L7 load balancing
+  - API edge functionality
+
+- Cloud providers:
+  - AWS ALB + API Gateway
+  - GCP Load Balancer + Apigee
+  - Azure Front Door + API Management
+
+These are architectural responsibilities, not mutually exclusive product categories.
 
 ---
 
@@ -1010,18 +1077,6 @@ Higher-layer routing gives more flexibility, but generally adds more processing 
 
 ---
 
-## Resumo (SLA / SLO / SLI)
-
-# Resumo
-
-| Métrica | O que é                         | Foco          |
-| ------- | ------------------------------- | ------------- |
-| **SLA** | Compromisso com o cliente       | Externo       |
-| **SLO** | Meta interna para cumprir o SLA | Interno       |
-| **SLI** | Medição real do desempenho      | Monitoramento |
-
----
-
 ## Resiliency, HA, fault tolerance
 
 # Resiliency, HA, Fault tolerance
@@ -1044,14 +1099,14 @@ Remember: a **fault** is a component deviating from spec, while a **failure** is
 
 ## Failover types
 
-| **Failover Type**            | **Description (includes cost and context)**                                                                                                                                           | **Standby Mode (Readiness & Activity)**                                  | **Recovery Speed (RTO) / Data Loss Risk (RPO)**         | **Typical Cost**        | **Typical Use Cases**                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------- |
-| **Active–Active**            | Multiple nodes handle requests simultaneously. Provides load balancing and instant failover. Highly resilient but complex and costly due to synchronization and consistency overhead. | All nodes fully **active** (no standby)                                  | **RTO:** Near-zero**RPO:** Very low                     | 💰💰💰 (High)           | Web clusters, distributed caches (Redis, DynamoDB), message brokers (Kafka) |
-| **Active–Passive (Cold)**    | Standby is powered off or manually started after failure. Simplest and cheapest, but slow recovery and higher risk of data loss.                                                      | **Cold** – Standby **inactive/off**, requires manual or scripted start   | **RTO:** Hours**RPO:** High                             | 💰 (Low)                | Non-critical workloads, dev/test, cost-optimized setups                     |
-| **Active–Passive (Warm)**    | Standby runs partially and syncs periodically. Balanced cost vs. recovery time; small chance of losing recent data.                                                                   | **Warm** – Standby **semi-active**, periodically synchronized            | **RTO:** Minutes**RPO:** Medium                         | 💰💰 (Moderate)         | Disaster recovery sites, RDS Multi-AZ, secondary cloud regions              |
-| **Active–Passive (Hot)**     | Fully synchronized mirror ready for instant takeover. High cost but minimal downtime and data loss.                                                                                   | **Hot** – Standby **active**, fully synchronized but not serving traffic | **RTO:** Seconds**RPO:** Near-zero                      | 💰💰💰 (High)           | Mission-critical systems (banking, aviation, telecom)                       |
-| **N+1 Redundancy**           | One or more standby nodes protect several active nodes. Shares spare capacity, reducing cost while keeping reliability.                                                               | **Warm/Shared** – Standby covers multiple actives                        | **RTO:** Seconds–Minutes**RPO:** Low                    | 💰💰 (Moderate)         | Load balancers, clustered web servers                                       |
-| **Geo-Distributed Failover** | Systems replicated across regions for large-scale disaster recovery. Extremely resilient but adds latency and replication cost.                                                       | **Warm or Hot** – Remote standby varies by sync mode                     | **RTO:** Seconds–Minutes**RPO:** Depends on replication | 💰💰💰 (High–Very High) | Multi-region cloud deployments, global services                             |
+| **Failover Type**            | **Description (includes cost and context)**                                                                                                                                           | **Standby Mode (Readiness & Activity)**                                  | **Recovery Speed (RTO) / Data Loss Risk (RPO)**          | **Typical Cost**        | **Typical Use Cases**                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------- |
+| **Active–Active**            | Multiple nodes handle requests simultaneously. Provides load balancing and instant failover. Highly resilient but complex and costly due to synchronization and consistency overhead. | All nodes fully **active** (no standby)                                  | **RTO:** Near-zero/**RPO:** Very low                     | 💰💰💰 (High)           | Web clusters, distributed caches (Redis, DynamoDB), message brokers (Kafka) |
+| **Active–Passive (Cold)**    | Standby is powered off or manually started after failure. Simplest and cheapest, but slow recovery and higher risk of data loss.                                                      | **Cold** – Standby **inactive/off**, requires manual or scripted start   | **RTO:** Hours/**RPO:** High                             | 💰 (Low)                | Non-critical workloads, dev/test, cost-optimized setups                     |
+| **Active–Passive (Warm)**    | Standby runs partially and syncs periodically. Balanced cost vs. recovery time; small chance of losing recent data.                                                                   | **Warm** – Standby **semi-active**, periodically synchronized            | **RTO:** Minutes/**RPO:** Medium                         | 💰💰 (Moderate)         | Disaster recovery sites, RDS Multi-AZ, secondary cloud regions              |
+| **Active–Passive (Hot)**     | Fully synchronized mirror ready for instant takeover. High cost but minimal downtime and data loss.                                                                                   | **Hot** – Standby **active**, fully synchronized but not serving traffic | **RTO:** Seconds/**RPO:** Near-zero                      | 💰💰💰 (High)           | Mission-critical systems (banking, aviation, telecom)                       |
+| **N+1 Redundancy**           | One or more standby nodes protect several active nodes. Shares spare capacity, reducing cost while keeping reliability.                                                               | **Warm/Shared** – Standby covers multiple actives                        | **RTO:** Seconds–Minutes/**RPO:** Low                    | 💰💰 (Moderate)         | Load balancers, clustered web servers                                       |
+| **Geo-Distributed Failover** | Systems replicated across regions for large-scale disaster recovery. Extremely resilient but adds latency and replication cost.                                                       | **Warm or Hot** – Remote standby varies by sync mode                     | **RTO:** Seconds–Minutes/**RPO:** Depends on replication | 💰💰💰 (High–Very High) | Multi-region cloud deployments, global services                             |
 
 ## Disaster recovery (RTO, RPO)
 
@@ -1075,15 +1130,6 @@ Disaster recovery defines how quickly systems recover and how much data can be l
 - Choose **pilot light** when core services must recover faster but full duplication is too expensive.
 - Choose **warm standby** for balanced resilience/cost with predictable recovery.
 - Choose **multi-site** for mission-critical services where both downtime and data loss must be minimal.
-
-### Should this be part of failover modes?
-
-Yes. Disaster recovery strategies are the regional/site-level extension of failover modes:
-
-- Failover mode explains **how traffic/service switches**
-- DR strategy explains **how much environment exists before failure**
-
-Together they define the complete availability posture.
 
 ## SLA, SLO e SLI
 

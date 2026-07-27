@@ -336,27 +336,28 @@ latch.await(); // blocks until count reaches 0
 ## Decision Framework: Choosing a Concurrency Primitive
 
 This table helps you select the right tool based on your scenario. Key criteria:
+
 - **Scope:** what you need to synchronise (single variable, multiple, coordination)
 - **Contention:** expected thread conflict level (low, medium, high)
 - **Throughput:** blocking vs. lock-free performance
 
-| Primitive | Problem | Scope | Contention | Blocking | Best for |
-| --- | --- | --- | --- | --- | --- |
-| **`volatile`** | Visibility only | Single variable | Low | No | Simple flag/counter with single writer (e.g., shutdown signal) |
-| **`synchronized`** | Atomicity + visibility | Object/method | Low–medium | Yes | Simple critical sections; easier than locks when you don't need fairness |
-| **`AtomicInteger`** / **`Long`** | Atomicity without lock | Single variable | Low–medium | No | Counters, flags, or single-variable updates where lock-free is needed |
-| **`AtomicStampedReference`** | ABA prevention | Single reference | Low–medium | No | Lock-free data structures (linked lists, stacks) where reuse is a risk |
-| **`LongAdder`** | High-contention counter | Single logical counter | **High** | No | Write-heavy metrics/statistics where exact snapshots aren't critical |
-| **`ReentrantLock`** | Atomicity + control | Critical section | Low–medium | Yes | Complex synchronisation: timeouts, interruption, fairness options |
-| **`ReentrantReadWriteLock`** | Read-heavy workloads | Shared resource | Low–medium | Yes | Cache/index with many readers and occasional writers |
-| **`StampedLock`** | Optimistic read | Shared resource | Low–medium | Mostly no | Read-heavy data with very high throughput (e.g., coordinates, stats) |
-| **`ConcurrentHashMap`** | Thread-safe map | Multiple keys | Medium–high | Mostly no | Shared cache/dictionary; better than synchronized Map |
-| **`CopyOnWriteArrayList`** | Read-heavy list | Multiple elements | Low–medium | No | Lists with many readers, few writers (e.g., listeners, snapshots) |
-| **`ConcurrentLinkedQueue`** | Lock-free FIFO | Multiple elements | Medium–high | No | High-throughput task queues without blocking |
-| **`LinkedBlockingQueue`** | Blocking producer–consumer | Multiple elements | Medium | Yes | Decoupling producers/consumers with backpressure |
-| **`CountDownLatch`** | Wait for N events | Coordination | Low | Yes (blocking on await) | One-time synchronisation: "wait for all workers to finish" |
-| **`CyclicBarrier`** | Reusable barrier | Coordination | Low | Yes (blocking on await) | Multi-phase algorithm: "all threads rendezvous at checkpoint" |
-| **`Semaphore`** | Resource pool access | Coordination | Medium | Yes | Limit concurrent access to bounded resources (connection pools, thread limits) |
+| Primitive                        | Problem                    | Scope                  | Contention  | Blocking                | Best for                                                                       |
+| -------------------------------- | -------------------------- | ---------------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------ |
+| **`volatile`**                   | Visibility only            | Single variable        | Low         | No                      | Simple flag/counter with single writer (e.g., shutdown signal)                 |
+| **`synchronized`**               | Atomicity + visibility     | Object/method          | Low–medium  | Yes                     | Simple critical sections; easier than locks when you don't need fairness       |
+| **`AtomicInteger`** / **`Long`** | Atomicity without lock     | Single variable        | Low–medium  | No                      | Counters, flags, or single-variable updates where lock-free is needed          |
+| **`AtomicStampedReference`**     | ABA prevention             | Single reference       | Low–medium  | No                      | Lock-free data structures (linked lists, stacks) where reuse is a risk         |
+| **`LongAdder`**                  | High-contention counter    | Single logical counter | **High**    | No                      | Write-heavy metrics/statistics where exact snapshots aren't critical           |
+| **`ReentrantLock`**              | Atomicity + control        | Critical section       | Low–medium  | Yes                     | Complex synchronisation: timeouts, interruption, fairness options              |
+| **`ReentrantReadWriteLock`**     | Read-heavy workloads       | Shared resource        | Low–medium  | Yes                     | Cache/index with many readers and occasional writers                           |
+| **`StampedLock`**                | Optimistic read            | Shared resource        | Low–medium  | Mostly no               | Read-heavy data with very high throughput (e.g., coordinates, stats)           |
+| **`ConcurrentHashMap`**          | Thread-safe map            | Multiple keys          | Medium–high | Mostly no               | Shared cache/dictionary; better than synchronized Map                          |
+| **`CopyOnWriteArrayList`**       | Read-heavy list            | Multiple elements      | Low–medium  | No                      | Lists with many readers, few writers (e.g., listeners, snapshots)              |
+| **`ConcurrentLinkedQueue`**      | Lock-free FIFO             | Multiple elements      | Medium–high | No                      | High-throughput task queues without blocking                                   |
+| **`LinkedBlockingQueue`**        | Blocking producer–consumer | Multiple elements      | Medium      | Yes                     | Decoupling producers/consumers with backpressure                               |
+| **`CountDownLatch`**             | Wait for N events          | Coordination           | Low         | Yes (blocking on await) | One-time synchronisation: "wait for all workers to finish"                     |
+| **`CyclicBarrier`**              | Reusable barrier           | Coordination           | Low         | Yes (blocking on await) | Multi-phase algorithm: "all threads rendezvous at checkpoint"                  |
+| **`Semaphore`**                  | Resource pool access       | Coordination           | Medium      | Yes                     | Limit concurrent access to bounded resources (connection pools, thread limits) |
 
 ---
 

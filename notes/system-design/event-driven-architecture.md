@@ -24,7 +24,813 @@ There are many forms of working with events:
 
 ## Event sourcing
 
-![Event-Driven Architecture](../../assets/system-design/eda.png)
+![Event-Driven Architecture](../assets/microservices/eda.png)
+
+Event Sourcing is an architectural pattern where the system stores events that describe changes instead of storing only the current state.
+
+The main idea:
+
+> The source of truth is not the current state of the database. The source of truth is the sequence of events that produced that state.
+
+Instead of:
+
+```text
+Database
+
+↓
+
+Current State
+```
+
+Event Sourcing stores:
+
+```text
+Event Store
+
+↓
+
+History of Changes
+
+↓
+
+Current State
+```
+
+---
+
+# Traditional Application vs Event Sourcing
+
+## Traditional Model
+
+A traditional application stores the latest state.
+
+Example:
+
+```text
+Account Table
+
+id     balance
+----------------
+123    120
+```
+
+The database only knows:
+
+```text
+Current balance = 120
+```
+
+The previous operations are lost.
+
+---
+
+## Event Sourcing Model
+
+The database stores every business event.
+
+Example:
+
+```text
+Event Store
+
+AccountCreated
+
+↓
+
+MoneyDeposited +100
+
+↓
+
+MoneyWithdrawn -30
+
+↓
+
+MoneyDeposited +50
+```
+
+The current state is calculated:
+
+```text
+100 - 30 + 50 = 120
+```
+
+The history is preserved.
+
+---
+
+# Core Concepts
+
+## Event
+
+An event represents a fact that already happened.
+
+Characteristics:
+
+- Immutable
+- Historical
+- Cannot be changed
+- Written once
+
+Examples:
+
+```text
+UserRegistered
+
+OrderCreated
+
+PaymentProcessed
+
+MoneyDeposited
+```
+
+Events are usually named in the past tense because they describe completed actions.
+
+---
+
+## Event Store
+
+The Event Store is the database that stores events in order.
+
+Example:
+
+```text
+Event Store
+
+Aggregate ID | Version | Event
+---------------------------------------
+Account-123  | 1       | Created
+Account-123  | 2       | Deposited(100)
+Account-123  | 3       | Withdrawn(30)
+Account-123  | 4       | Deposited(50)
+```
+
+Important properties:
+
+- Append-only
+- Ordered sequence
+- Immutable records
+
+The Event Store becomes the source of truth.
+
+---
+
+# Command Side
+
+The command side handles requests that change the system.
+
+Example:
+
+```text
+User
+
+↓
+
+UI
+
+↓
+
+Command
+
+↓
+
+Decider
+```
+
+---
+
+## Command
+
+A command is a request to perform an action.
+
+Examples:
+
+```text
+CreateAccount
+
+WithdrawMoney
+
+CancelOrder
+```
+
+A command represents an intention.
+
+It is not yet a fact.
+
+Example:
+
+```text
+WithdrawMoney(50)
+```
+
+means:
+
+> "Please withdraw 50"
+
+It does not mean the withdrawal happened.
+
+---
+
+## Decider
+
+The decider contains business rules.
+
+It decides:
+
+- If the command is valid
+- Which events should be generated
+
+Example:
+
+Input:
+
+```text
+Command:
+
+WithdrawMoney(50)
+```
+
+Current state:
+
+```text
+Balance = 100
+```
+
+Decision:
+
+```text
+Allowed
+```
+
+Produces:
+
+```text
+MoneyWithdrawn(50)
+```
+
+---
+
+# Event Flow
+
+Complete write flow:
+
+```text
+User
+
+↓
+
+Command
+
+↓
+
+Decider
+
+↓
+
+Event
+
+↓
+
+Event Store
+```
+
+Example:
+
+```text
+WithdrawMoney(50)
+
+↓
+
+Check balance
+
+↓
+
+MoneyWithdrawn(50)
+
+↓
+
+Save event
+```
+
+The system never directly updates the state.
+
+It appends a new event.
+
+---
+
+# Rebuilding State
+
+Because events are the source of truth, the current state can always be recreated.
+
+Example:
+
+```text
+Event Store
+
+AccountCreated
+
++
+
+Deposited(100)
+
++
+
+Withdrawn(30)
+
++
+
+Deposited(50)
+
+        ↓
+
+Projection / Aggregate Replay
+
+        ↓
+
+Balance = 120
+```
+
+This process is called:
+
+- Event Replay
+- State Reconstruction
+
+---
+
+# Query Side (Read Model)
+
+Reading from the Event Store directly is usually inefficient.
+
+Instead, events are transformed into optimized read models.
+
+```text
+Event Store
+
+↓
+
+Projection
+
+↓
+
+Read Model
+
+↓
+
+Query
+```
+
+---
+
+## Projection
+
+A projection consumes events and transforms them into state.
+
+Example:
+
+Events:
+
+```text
+OrderCreated
+
+OrderPaid
+
+OrderShipped
+```
+
+Projection:
+
+```text
+Order Status Projection
+```
+
+Creates:
+
+```text
+Order Table
+
+id     status
+---------------
+123    SHIPPED
+```
+
+The projection answers:
+
+> "How should I represent these events for this use case?"
+
+---
+
+## Read Model
+
+The read model is the data optimized for queries.
+
+Examples:
+
+```text
+SQL Database
+
+Document Database
+
+Elasticsearch
+
+Data Warehouse
+```
+
+Different read models can exist for different needs.
+
+Example:
+
+```text
+Event Store
+
+       |
+       |
+       +----------------+
+       |                |
+       ↓                ↓
+
+Order Search       Analytics
+
+ElasticSearch      Data Warehouse
+```
+
+---
+
+# CQRS (Command Query Responsibility Segregation)
+
+Event Sourcing is often combined with CQRS.
+
+CQRS separates:
+
+- Writing
+- Reading
+
+---
+
+## Command Side
+
+Responsible for:
+
+- Validation
+- Business rules
+- Creating events
+
+```text
+Command
+
+↓
+
+Domain Logic
+
+↓
+
+Event Store
+```
+
+---
+
+## Query Side
+
+Responsible for:
+
+- Fast reads
+- Optimized views
+
+```text
+Read Request
+
+↓
+
+Read Model
+
+↓
+
+Response
+```
+
+---
+
+# Complete Architecture
+
+```text
+                 COMMAND SIDE
+
+User
+ |
+ v
+Command
+ |
+ v
+Decider
+ |
+ v
+Events
+ |
+ v
+Event Store
+ |
+ |
+ +--------------------------------+
+                                  |
+                                  v
+
+                           PROJECTIONS
+
+                                  |
+                                  v
+
+                 +----------------+----------------+
+                 |                |                |
+                 v                v                v
+
+            SQL View        Search Index     Analytics DB
+
+                 |
+                 v
+
+              Queries
+```
+
+---
+
+# Reactions / Event Handlers
+
+Not every consumer creates a read model.
+
+Some components react to events and trigger side effects.
+
+Example:
+
+```text
+PaymentCompleted
+
+↓
+
+Reaction
+
+↓
+
+Send Email
+
+↓
+
+Update External API
+```
+
+Examples:
+
+- Email notifications
+- Payment gateways
+- Message brokers
+- External integrations
+
+---
+
+# Projection vs Reaction
+
+| Projection          | Reaction                  |
+| ------------------- | ------------------------- |
+| Builds read state   | Performs side effects     |
+| Creates read models | Calls external systems    |
+| Usually internal    | Often integration-focused |
+| Example: Order View | Example: Send Email       |
+
+---
+
+# Advantages
+
+## Complete History
+
+Every change is preserved.
+
+Example:
+
+```text
+Account balance changed because:
+
+Deposit
+Withdrawal
+Refund
+Correction
+```
+
+---
+
+## Auditability
+
+Useful in domains requiring history:
+
+- Banking
+- Healthcare
+- Finance
+- Insurance
+
+---
+
+## Rebuild Read Models
+
+If a projection has a bug:
+
+```text
+Delete Read Model
+
+↓
+
+Replay Events
+
+↓
+
+Create New Read Model
+```
+
+No data is lost.
+
+---
+
+## Multiple Views
+
+The same events can create different projections.
+
+Example:
+
+```text
+Order Events
+
+       |
+       +------------+
+       |            |
+       v            v
+
+Customer View   Finance View
+```
+
+---
+
+# Disadvantages
+
+## Increased Complexity
+
+You now manage:
+
+- Event storage
+- Projections
+- Event versioning
+- Replay processes
+
+---
+
+## Event Evolution
+
+Events cannot easily change.
+
+Bad:
+
+```json
+{
+  "amount": 100
+}
+```
+
+Later:
+
+```json
+{
+  "value": 100,
+  "currency": "USD"
+}
+```
+
+Old events still exist.
+
+Solutions:
+
+- Event versioning
+- Upcasting
+- Migration strategies
+
+---
+
+## Eventual Consistency
+
+Read models are updated asynchronously.
+
+Example:
+
+```text
+Command
+
+↓
+
+Event Saved
+
+↓
+
+Projection Updates
+
+↓
+
+Read Model Updated
+```
+
+There may be a short delay.
+
+---
+
+# When to Use Event Sourcing
+
+Good fit:
+
+- Complex business rules
+- Need complete audit history
+- Financial systems
+- Workflow systems
+- Systems with many derived views
+
+Examples:
+
+- Banking transactions
+- Order lifecycle
+- Inventory movements
+- Payment systems
+
+---
+
+# When Not to Use It
+
+Avoid when:
+
+- CRUD is simple
+- History is not important
+- Team lacks operational maturity
+- Immediate consistency is mandatory everywhere
+
+A simple relational database is often better.
+
+---
+
+# Key Takeaways
+
+- Event Sourcing stores events, not just current state.
+- The Event Store is the source of truth.
+- Commands request changes.
+- Deciders validate commands and produce events.
+- Projections transform events into read models.
+- Reactions trigger side effects.
+- CQRS separates write models from read models.
+- Event replay allows rebuilding state and views.
+- The trade-off is increased complexity and eventual consistency.
+
+## Delayed and scheduled messages
+
+Not all events should be consumed immediately. Some actions are intentionally deferred:
+
+- Cancel unpaid order after 30 minutes
+- Retry failed operation in 5 minutes
+- Send reminder tomorrow at 09:00
+
+Two common forms:
+
+| Type              | Example               |
+| ----------------- | --------------------- |
+| Delayed message   | Deliver in 30 minutes |
+| Scheduled message | Deliver at 15:30      |
+
+At runtime, both are "message + release time".
+
+**Basic flow:**
+
+```
+Producer
+  |
+  | send with delay/schedule
+  v
+Broker temporary storage
+  |
+  | release at target time
+  v
+Topic/Queue
+  |
+  v
+Consumer
+```
+
+### Common implementation strategies
+
+- Delay queue/topic with TTL + forward/dead-letter routing
+- Predefined delay levels (for simpler broker internals)
+- Hierarchical timing wheels for large timer cardinality
+
+Timing-wheel based schedulers are common in high-scale systems because they keep timer operations close to O(1)-like behavior per event.
+
+### Why this matters for sagas
+
+Delayed delivery is a practical way to model distributed timeouts:
+
+```
+OrderCreated
+  -> schedule CheckPaymentTimeout(+30m)
+  -> if still pending at timeout: cancel order
+```
+
+This avoids periodic scans for timeout checks and keeps workflow logic event-driven.
 
 ## Kafka x RabbitMQ
 
@@ -77,70 +883,31 @@ Use **RabbitMQ** when you need **immediate, short-lived task handling** or **req
 
 ## Delivery Guarantee Semantics
 
-Event systems provide different delivery guarantees:
+Event systems provide different delivery guarantees. For comprehensive definitions and use cases, see [transactions-and-concurrency.md#delivery-guarantee-semantics](transactions-and-concurrency.md#delivery-guarantee-semantics).
 
-### At-Most-Once
-
-- Message delivered **zero or one time**
-- May be lost
-- Never duplicated
-
-Use when:
-
-- Data loss acceptable (analytics, metrics)
-- Duplicate worse than loss (ad impressions)
-
-Example: UDP, fire-and-forget RPC
-
----
-
-### At-Least-Once
-
-- Message delivered **one or more times**
-- Never lost
-- May be duplicated
-
-Use when:
-
-- Duplicates tolerable (idempotent operations)
-- Data loss unacceptable
-
-Implementation:
-
-- Broker retries on no ACK
-- Consumer may see duplicates on retry
-
-Example: Kafka default, RabbitMQ manual ACK
-
----
-
-### Exactly-Once
-
-- Message delivered **precisely once**
-- Never lost
-- Never duplicated
-
-Use when:
-
-- Financial transactions (no duplicates allowed)
-- Accounting (every transaction counted once)
-- Inventory (duplicate decrement breaks stock)
-
-Implementation:
-
-- Combination of mechanisms:
-  - Idempotent processing
-  - Deduplication tracking
-  - Offset management
-  - Atomic commits
-
-Example: Modern Kafka transactional mode, Flink checkpoints
+The following sections detail how Kafka, RabbitMQ, and stream processors implement these guarantees.
 
 ---
 
 ## Kafka Exactly-Once Implementation
 
-Modern Kafka (0.11+) achieves exactly-once through:
+Modern Kafka (0.11+) achieves exactly-once through integrated mechanisms. See [transactions-and-concurrency.md#real-world-exactly-once-implementations](transactions-and-concurrency.md#real-world-exactly-once-implementations) for the conceptual foundation.
+
+### Important boundary
+
+Kafka EOS is "exactly-once within Kafka transactional boundaries". It is not universal "exactly one side effect everywhere".
+
+Example boundary break:
+
+```
+Consume OrderPlaced
+Charge external payment API
+Crash before offset commit
+Restart and replay
+Charge attempted again
+```
+
+For side effects outside Kafka, combine at-least-once delivery with idempotency keys, deduplication, outbox/inbox patterns, and reconciliation.
 
 ### 1. Idempotent Producer
 
@@ -183,6 +950,8 @@ Partial success impossible
 
 ### 3. Offset and Result Atomicity
 
+See [transactions-and-concurrency.md#offset-and-result-atomicity](transactions-and-concurrency.md#offset-and-result-atomicity) for detailed explanation and code examples.
+
 ```
 Consumer with exactly-once:
 
@@ -207,6 +976,8 @@ Failure scenario:
 
 ### 4. Isolation Level
 
+See [transactions-and-concurrency.md#isolation-level-configuration](transactions-and-concurrency.md#isolation-level-configuration) for details.
+
 ```
 Configuration: isolation.level = read_committed
 
@@ -221,22 +992,13 @@ Consumer behavior:
 
 ## RabbitMQ Exactly-Once Patterns
 
-RabbitMQ doesn't natively provide exactly-once. Pattern:
+RabbitMQ doesn't natively provide exactly-once like Kafka. See [transactions-and-concurrency.md#rabbitmq-exactly-once-patterns](transactions-and-concurrency.md#rabbitmq-exactly-once-patterns) for detailed implementation patterns and code examples.
 
-### Publisher Confirms + Idempotency
+**Quick summary:**
 
-```
-1. Publisher sends with unique correlation ID
-2. RabbitMQ confirms (publisher confirms feature)
-3. Consumer processes idempotently
-4. Consumer stores processed IDs
-
-Duplicate detection:
-  If same correlation ID seen:
-    ✓ Message already processed
-    → Return cached result
-    → Skip processing
-```
+- Publisher confirms + correlation IDs
+- Consumer-side idempotent processing
+- Application-level deduplication storage
 
 ---
 
@@ -265,19 +1027,30 @@ References:
 
 ---
 
-## Exactly-Once Checklist for Event Systems
+## Exactly-Once Verification Checklist
 
-Before claiming exactly-once, ensure:
+See [transactions-and-concurrency.md#achieving-exactly-once-checklist](transactions-and-concurrency.md#achieving-exactly-once-checklist) for comprehensive checklist when designing exactly-once systems.
 
-- [ ] **Unique message IDs** — correlation ID, request ID, or offset
-- [ ] **Idempotent processing** — same message reprocessed = same result
-- [ ] **Atomic writes** — output and offset stored together
-- [ ] **Deduplication** — processed IDs tracked and checked
-- [ ] **Failure recovery** — crash doesn't lose work or duplicate
-- [ ] **State persistence** — processed state survives restart
-- [ ] **End-to-end** — covers producer-broker-consumer pipeline
+**Quick reference for event systems:**
+
+- [ ] Unique message IDs (correlation ID, request ID, or offset)
+- [ ] Idempotent processing (same message = same result)
+- [ ] Atomic writes (offset and result stored together)
+- [ ] Deduplication (processed IDs tracked and checked)
+- [ ] Failure recovery (no work lost or duplicated)
+- [ ] State persistence (processed state survives restart)
+- [ ] End-to-end coverage (full producer-broker-consumer pipeline)
 
 ---
 
-![image.png](../assets/microservices/system-design-cheat-sheet-1.png)
-![image.png](../assets/microservices/system-design-cheat-sheet-2.png)
+## Domain Quality Drives Architecture Quality
+
+Event-driven architecture works best when **domain boundaries are clear**. If domain decomposition is poor (tangled responsibilities, god objects), event-driven systems will struggle with tight coupling and unclear service ownership.
+
+**Key principle:**
+
+> Architecture quality follows domain model quality. Design your domains first (DDD), then build event-driven systems that respect domain boundaries.
+
+**See also:** [Domain-Driven Design](./domain-driven-design.md#architecture-quality-depends-on-domain-model-quality) for bounded context design and context mapping patterns.
+
+---

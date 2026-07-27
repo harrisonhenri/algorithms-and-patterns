@@ -114,6 +114,95 @@ Failure scenarios:
 
 ---
 
+## Delivery Guarantee Semantics
+
+Distributed systems offer different delivery guarantees, each with tradeoffs. These guarantees apply to message systems, RPC calls, and database operations.
+
+### At-Most-Once
+
+- Message delivered **zero or one time**
+- May be lost
+- Never duplicated
+
+**Use when:**
+
+- Data loss acceptable (analytics, metrics, non-critical events)
+- Duplicate worse than loss (ad impressions, unique counts)
+
+**Examples:** UDP, fire-and-forget RPC, some message brokers without retries
+
+**Trade-offs:**
+
+- ✓ Lowest latency
+- ✓ Simplest implementation
+- ✗ Data loss possible
+- ✗ Unreliable for critical operations
+
+---
+
+### At-Least-Once
+
+- Message delivered **one or more times**
+- Never lost
+- May be duplicated
+
+**Use when:**
+
+- Duplicates tolerable (operations are idempotent)
+- Data loss unacceptable (important transactions)
+
+**Examples:** Kafka default, RabbitMQ with manual acknowledgments, retry-based systems
+
+**Implementation:**
+
+- Broker/sender retries on no acknowledgment
+- Consumer may see duplicates on failure recovery
+
+**Trade-offs:**
+
+- ✓ Never loses data
+- ✓ Good for most practical use cases
+- ✓ Relatively simple
+- ✗ Requires idempotent processing
+- ✗ Slightly higher latency due to retries
+
+---
+
+### Exactly-Once
+
+- Message delivered **precisely once**
+- Never lost
+- Never duplicated
+
+**Use when:**
+
+- Financial transactions (no duplicates allowed)
+- Accounting systems (every transaction counted once)
+- Inventory management (duplicate decrement breaks stock)
+- Mission-critical operations (both loss AND duplication unacceptable)
+
+**Implementation:**
+Combination of mechanisms:
+
+- Unique message IDs (request ID, correlation ID, offset)
+- Idempotent processing
+- Deduplication tracking
+- Atomic offset commits
+- State persistence
+
+**Examples:** Modern Kafka transactional mode, Apache Flink checkpoints, traditional ACID databases with 2PC
+
+**Trade-offs:**
+
+- ✓ Perfect correctness
+- ✓ No data loss
+- ✓ No duplicates
+- ✗ Most complex implementation
+- ✗ Higher latency (coordination overhead)
+- ✗ Lower throughput (atomic operations)
+
+---
+
 ## Why Exactly-Once Matters
 
 Industries relying on exactly-once:
@@ -176,6 +265,29 @@ If operation retried:
   • First retry: balance != $1000 (now $900), CAS fails, safe
   • No duplicate deduction
 ```
+
+### CAS loops in practice
+
+CAS is optimistic concurrency at CPU level. A typical update uses a retry loop:
+
+```java
+while (true) {
+  int oldValue = counter.get();
+  int newValue = oldValue + 1;
+  if (counter.compareAndSet(oldValue, newValue)) {
+    break;
+  }
+}
+```
+
+This is efficient when conflicts are rare. Under high contention, many threads repeatedly fail CAS and burn CPU on retries.
+
+Practical rule:
+
+- Low contention: CAS/optimistic strategies are usually best
+- High contention on one key: serialize by owner/partition, or prefer lock/wait over endless retries
+
+See also CAS details and ABA handling in [../language-mechanics/java/concurrent-programming.md](../language-mechanics/java/concurrent-programming.md).
 
 **Strategy 3: Deterministic Processing**
 
@@ -265,6 +377,194 @@ If crash between process and commit:
 
 ---
 
+### Offset and Result Atomicity
+
+The key requirement for reliable event processing is:
+
+> **Business state and processing progress must be persisted atomically.**
+
+Whenever a message is processed, the system must ensure that both are stored together:
+
+- Business result (database update, side effect, etc.)
+- Processing progress (offset, sequence number, event ID)
+
+---
+
+### The Pattern
+
+```text
+1. Read message at offset 100
+2. Process message
+3. Atomically persist:
+   - Business result
+   - Offset/event ID
+
+If crash occurs before step 3:
+  → Message is replayed
+
+If crash occurs after step 3:
+  → Progress already recorded
+  → Replay is skipped or deduplicated
+```
+
+---
+
+### Why Atomicity Matters
+
+#### ❌ Result first, offset later
+
+```text
+1. Process message
+2. Store result
+3. Commit offset
+```
+
+Crash between 2 and 3:
+
+```text
+Result persisted
+Offset not committed
+
+→ Message is replayed
+→ Duplicate processing
+```
+
+#### ❌ Offset first, result later
+
+```text
+1. Commit offset
+2. Store result
+```
+
+Crash between 1 and 2:
+
+```text
+Offset committed
+Result lost
+
+→ Message is never replayed
+→ Data loss
+```
+
+---
+
+### Kafka Transactions
+
+Kafka's Exactly-Once Semantics (EOS) provides atomicity between:
+
+```text
+Consumed offsets
++
+Produced Kafka records
+```
+
+Example:
+
+```text
+Topic A
+   ↓
+Process
+   ↓
+Topic B
+```
+
+Kafka guarantees:
+
+```text
+Either:
+  - Output records are written
+  - Offsets are committed
+
+Or:
+  - Neither happens
+```
+
+This works well for:
+
+```text
+Kafka → Process → Kafka
+```
+
+---
+
+### External Database Pattern
+
+Kafka transactions do **not** automatically include PostgreSQL, MySQL, Redis, etc.
+
+For:
+
+```text
+Kafka → Process → Database
+```
+
+a common solution is storing both business state and processing progress in the same database transaction:
+
+```sql
+BEGIN;
+
+INSERT INTO orders (...);
+
+INSERT INTO processed_events (
+    topic,
+    partition,
+    offset
+) VALUES (
+    'orders',
+    5,
+    100
+);
+
+COMMIT;
+```
+
+Now:
+
+```text
+Order created
++
+Offset 100 recorded
+```
+
+are committed atomically.
+
+---
+
+### In Practice
+
+Many systems achieve correctness through:
+
+```text
+At-least-once delivery
++
+Idempotent processing
++
+Atomic state/progress persistence
+```
+
+rather than relying solely on Kafka transactions.
+
+---
+
+### Isolation Level Configuration
+
+Kafka consumers can be configured to read only committed messages:
+
+```
+Configuration: isolation.level = read_committed
+
+Consumer behavior:
+  - Only reads fully committed messages
+  - Ignores in-flight transactions (not yet committed)
+  - Prevents reading aborted operations
+  - Ensures consistency across replicas
+
+Alternative: isolation.level = read_uncommitted
+  - Reads all messages (even uncommitted)
+  - Higher throughput but weaker consistency
+```
+
+---
+
 ## Mechanism: Atomic Commits
 
 ### Two-Phase Commit (2PC)
@@ -344,6 +644,31 @@ Configuration:
 Result: Exactly-once across Kafka producer-broker-consumer chain
 ```
 
+### Boundary of Kafka EOS guarantees
+
+Kafka EOS does not guarantee exactly-once side effects in external systems by itself.
+
+Failure ambiguity example:
+
+```
+Consumer reads OrderPlaced
+Calls external payment API
+External charge succeeds
+Process crashes before offset/result commit
+Message is replayed
+```
+
+Without external idempotency, the charge may execute twice.
+
+Mitigation patterns:
+
+- Idempotency key per business operation (for example, `chargeId`)
+- Deduplication table/inbox for processed operations
+- Transactional outbox to atomically persist domain change + event publication intent
+- Reconciliation jobs for eventual correctness and audit repair
+
+In production, this is often modeled as "at-least-once delivery + idempotent side effects".
+
 Reference: [96] Gustafson et al. "KIP-98 – Exactly Once Delivery and Transactional Messaging"
 
 ---
@@ -392,6 +717,105 @@ while (true) {
 
 ---
 
+### RabbitMQ Exactly-Once Patterns
+
+RabbitMQ doesn't natively provide exactly-once semantics like Kafka does. Instead, use this pattern:
+
+#### Publisher Confirms + Idempotency
+
+```
+1. Publisher sends each message with unique correlation ID
+2. RabbitMQ confirms receipt (publisher confirms feature)
+3. Consumer processes message idempotently
+4. Consumer stores correlation ID of processed messages
+
+Duplicate detection:
+  If same correlation ID seen again:
+    ✓ Message already processed
+    → Return cached result
+    → Skip application logic
+```
+
+**Implementation:**
+
+```java
+// Publisher with confirms
+Channel channel = connection.createChannel();
+channel.confirmSelect();  // Enable publisher confirms
+
+String correlationId = UUID.randomUUID().toString();
+AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
+    .correlationId(correlationId)
+    .build();
+
+channel.basicPublish("exchange", "routing.key", props, body);
+channel.waitForConfirms();  // Wait for broker confirmation
+
+// Consumer with deduplication
+channel.basicConsume("queue", false, (tag, message) -> {
+    String corrId = message.getProperties().getCorrelationId();
+
+    if (isAlreadyProcessed(corrId)) {
+        channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+        return;
+    }
+
+    try {
+        processMessage(message);  // must be idempotent
+        recordProcessed(corrId);
+        channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+    } catch (Exception e) {
+        channel.basicNack(message.getEnvelope().getDeliveryTag(), true);
+    }
+});
+```
+
+**Trade-offs:**
+
+- ✓ Works with RabbitMQ's simpler architecture
+- ✓ No special broker features needed
+- ✗ Requires application-level deduplication state
+- ✗ Dedup table must persist across restarts
+- ✗ Garbage collection of old correlation IDs needed
+
+---
+
+## Stream Processing and Exactly-Once
+
+### Apache Flink Checkpointing Model
+
+Stream processing frameworks achieve exactly-once through **periodic snapshots**:
+
+```
+Checkpointing process:
+  1. Pause all inputs momentarily
+  2. Snapshot all in-flight state
+  3. Flush outputs atomically
+  4. Resume processing
+
+Failure recovery:
+  ✓ Restore from checkpoint
+  ✓ Replay from saved offset
+  ✓ Deterministic reprocessing
+  ✓ Exactly-once state updates (no duplicates)
+```
+
+**Key insight:** Combining offset tracking + deterministic processing + atomic snapshots = exactly-once.
+
+**Apache Flink Implementation:**
+
+```
+Configuration: execution.checkpointing.mode = EXACTLY_ONCE
+
+Guarantees:
+  - Periodic snapshots of operator state
+  - Exactly-once writes to external systems
+  - Replay deterministically on failure
+  - No duplicate state updates
+```
+
+---
+
 ## Achieving Exactly-Once: Checklist
 
 To claim exactly-once semantics, ensure:
@@ -433,6 +857,17 @@ Manage concurrent access to shared resources with an optimistic assumption that 
 - Rather than preventing concurrent access, optimistic locking defers conflict detection until the time of committing changes
 - Reduced contention
 - When to use: read-heavy systems where conflicts are rare or infrequent or the transactions are short-lived
+
+### Contention management decision ladder
+
+When retries start dominating useful work, escalate your strategy:
+
+1. Optimistic retry (best for low conflict rates)
+2. Bounded retries with backoff/jitter
+3. Serialize by key (single-writer ownership, partitioning, queue)
+4. Pessimistic lock/wait for hotspot resources
+
+Under hotspot contention, waiting can outperform infinite optimistic retries because it limits retry storms and CPU churn.
 
 ## Distributed locking
 

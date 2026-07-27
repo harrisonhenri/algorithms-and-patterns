@@ -1,45 +1,56 @@
 ---
-tags: [javascript, nodejs, queuing, patterns, composition, p-queue, p-retry, p-timeout, p-throttle, real-world]
+tags:
+  [
+    javascript,
+    nodejs,
+    queuing,
+    patterns,
+    composition,
+    p-queue,
+    p-retry,
+    p-timeout,
+    p-throttle,
+    real-world,
+  ]
 title: "Queue Patterns & Composition: Real-World Examples"
 domain: "language-mechanics"
 ---
 
 # Queue Patterns & Composition: Real-World Examples
 
-Learn how to compose multiple p-* utilities and queuing strategies into production-ready systems.
+Learn how to compose multiple p-\* utilities and queuing strategies into production-ready systems.
 
 ---
 
-## Advanced Patterns: Composing p-*
+## Advanced Patterns: Composing p-\*
 
 ### Pattern 1: Throttle + Retry + Timeout (Triple Defense)
 
 **Use case**: Robust API client that respects rate limits, retries failures, and has time bounds.
 
 ```ts
-import pThrottle from 'p-throttle';
-import pRetry from 'p-retry';
-import pTimeout from 'p-timeout';
+import pThrottle from "p-throttle";
+import pRetry from "p-retry";
+import pTimeout from "p-timeout";
 
-const robustFetch = pThrottle({ limit: 5, interval: 10000 })(
-  async (url: string) => {
-    return await pRetry(
-      async () => pTimeout(fetch(url), 3000),
-      { retries: 3, minTimeout: 500 }
-    );
-  }
-);
+const robustFetch = pThrottle({ limit: 5, interval: 10000 })(async (
+  url: string,
+) => {
+  return await pRetry(async () => pTimeout(fetch(url), 3000), {
+    retries: 3,
+    minTimeout: 500,
+  });
+});
 
 // Each call:
 // - Respects 5 calls per 10s rate limit
 // - Retries up to 3 times on failure
 // - Times out after 3s per attempt
-const results = await Promise.all(
-  urls.map((url) => robustFetch(url))
-);
+const results = await Promise.all(urls.map((url) => robustFetch(url)));
 ```
 
 **Flow**:
+
 ```
 URL → Throttle → Retry loop → Timeout → Response
      (rate)      (resilience)  (bounds)
@@ -52,17 +63,14 @@ URL → Throttle → Retry loop → Timeout → Response
 **Use case**: Process tasks with concurrency control, automatic retries, and health monitoring.
 
 ```ts
-import PQueue from 'p-queue';
-import pRetry from 'p-retry';
+import PQueue from "p-queue";
+import pRetry from "p-retry";
 
 class RobustQueue {
   private queue = new PQueue({ concurrency: 5 });
   private failedTasks: string[] = [];
 
-  async addWithRetry(
-    name: string,
-    task: () => Promise<any>
-  ): Promise<void> {
+  async addWithRetry(name: string, task: () => Promise<any>): Promise<void> {
     return this.queue.add(() =>
       pRetry(task, {
         retries: 3,
@@ -70,13 +78,13 @@ class RobustQueue {
         onFailedAttempt: (error) => {
           console.warn(
             `[${name}] Attempt ${error.attemptNumber} failed:`,
-            error.message
+            error.message,
           );
         },
       }).catch((error) => {
         console.error(`[${name}] Failed after all retries:`, error);
         this.failedTasks.push(name);
-      })
+      }),
     );
   }
 
@@ -100,11 +108,11 @@ class RobustQueue {
 // Usage
 const robustQueue = new RobustQueue();
 
-await robustQueue.addWithRetry('User API', () => callAPI('/api/users'));
-await robustQueue.addWithRetry('Posts API', () => callAPI('/api/posts'));
+await robustQueue.addWithRetry("User API", () => callAPI("/api/users"));
+await robustQueue.addWithRetry("Posts API", () => callAPI("/api/posts"));
 
 const result = await robustQueue.waitForCompletion();
-console.log('Completion status:', result);
+console.log("Completion status:", result);
 ```
 
 ---
@@ -114,36 +122,37 @@ console.log('Completion status:', result);
 **Use case**: Fetch parent resources, then child resources for each parent, with different concurrency limits.
 
 ```ts
-import pAll from 'p-all';
-import pLimit from 'p-limit';
+import pAll from "p-all";
+import pLimit from "p-limit";
 
 async function fetchUsersWithPosts() {
   const userIds = Array.from({ length: 1000 }, (_, i) => i);
   const userLimit = pLimit(10); // Max 10 concurrent users
 
   const users = await pAll(
-    userIds.map((id) => () =>
-      userLimit(async () => {
-        // Fetch user
-        const user = await fetch(`/api/users/${id}`)
-          .then((r) => r.json());
+    userIds.map(
+      (id) => () =>
+        userLimit(async () => {
+          // Fetch user
+          const user = await fetch(`/api/users/${id}`).then((r) => r.json());
 
-        // For each user, fetch their posts (max 5 concurrent per user)
-        const postLimit = pLimit(5);
-        const posts = await pAll(
-          Array.from({ length: 20 }, (_, i) => () =>
-            postLimit(() =>
-              fetch(`/api/users/${id}/posts/${i}`)
-                .then((r) => r.json())
-            )
-          ),
-          { concurrency: 5 }
-        );
+          // For each user, fetch their posts (max 5 concurrent per user)
+          const postLimit = pLimit(5);
+          const posts = await pAll(
+            Array.from(
+              { length: 20 },
+              (_, i) => () =>
+                postLimit(() =>
+                  fetch(`/api/users/${id}/posts/${i}`).then((r) => r.json()),
+                ),
+            ),
+            { concurrency: 5 },
+          );
 
-        return { ...user, posts };
-      })
+          return { ...user, posts };
+        }),
     ),
-    { concurrency: 10 }
+    { concurrency: 10 },
   );
 
   return users;
@@ -151,6 +160,7 @@ async function fetchUsersWithPosts() {
 ```
 
 **Concurrency hierarchy**:
+
 ```
 Users (10 concurrent)
 ├─ User 1 → Posts (5 concurrent)
@@ -166,8 +176,8 @@ Users (10 concurrent)
 **Use case**: Insert 100,000 records in batches with concurrency control and failure tracking.
 
 ```ts
-import PQueue from 'p-queue';
-import pRetry from 'p-retry';
+import PQueue from "p-queue";
+import pRetry from "p-retry";
 
 class ResilientBatchProcessor<T> {
   private queue = new PQueue({ concurrency: 3 });
@@ -176,10 +186,7 @@ class ResilientBatchProcessor<T> {
   private processFunc: (batch: T[]) => Promise<void>;
   private stats = { succeeded: 0, failed: 0, totalItems: 0 };
 
-  constructor(
-    batchSize: number,
-    processFunc: (batch: T[]) => Promise<void>
-  ) {
+  constructor(batchSize: number, processFunc: (batch: T[]) => Promise<void>) {
     this.batchSize = batchSize;
     this.processFunc = processFunc;
   }
@@ -198,25 +205,22 @@ class ResilientBatchProcessor<T> {
     this.batch = [];
 
     this.queue.add(() =>
-      pRetry(
-        () => this.processFunc(toProcess),
-        {
-          retries: 3,
-          minTimeout: 1000,
-          onFailedAttempt: (error) => {
-            console.warn(
-              `Batch failed (attempt ${error.attemptNumber}), retrying...`
-            );
-          },
-        }
-      )
+      pRetry(() => this.processFunc(toProcess), {
+        retries: 3,
+        minTimeout: 1000,
+        onFailedAttempt: (error) => {
+          console.warn(
+            `Batch failed (attempt ${error.attemptNumber}), retrying...`,
+          );
+        },
+      })
         .then(() => {
           this.stats.succeeded += toProcess.length;
         })
         .catch((error) => {
           this.stats.failed += toProcess.length;
-          console.error('Batch failed after retries:', error);
-        })
+          console.error("Batch failed after retries:", error);
+        }),
     );
   }
 
@@ -234,19 +238,18 @@ class ResilientBatchProcessor<T> {
 }
 
 // Usage
-const processor = new ResilientBatchProcessor(
-  100,
-  async (batch) => {
-    await db.collection('items').insertMany(batch);
-  }
-);
+const processor = new ResilientBatchProcessor(100, async (batch) => {
+  await db.collection("items").insertMany(batch);
+});
 
 for (const record of records) {
   await processor.add(record);
 }
 
 const result = await processor.flush();
-console.log(`Processed: ${result.succeeded} succeeded, ${result.failed} failed`);
+console.log(
+  `Processed: ${result.succeeded} succeeded, ${result.failed} failed`,
+);
 ```
 
 ---
@@ -254,6 +257,7 @@ console.log(`Processed: ${result.succeeded} succeeded, ${result.failed} failed`)
 ## Complete Real-World Example: Robust API Client
 
 **Requirements**:
+
 - Max 5 concurrent requests
 - 3 retries per request with exponential backoff
 - 3-second timeout per attempt
@@ -262,10 +266,10 @@ console.log(`Processed: ${result.succeeded} succeeded, ${result.failed} failed`)
 - Health monitoring
 
 ```ts
-import PQueue from 'p-queue';
-import pRetry from 'p-retry';
-import pTimeout from 'p-timeout';
-import pTap from 'p-tap';
+import PQueue from "p-queue";
+import pRetry from "p-retry";
+import pTimeout from "p-timeout";
+import pTap from "p-tap";
 
 interface FetchOptions {
   retries?: number;
@@ -288,10 +292,7 @@ class RobustAPIClient {
     failedRequests: 0,
   };
 
-  async fetch<T>(
-    url: string,
-    options: FetchOptions = {}
-  ): Promise<T> {
+  async fetch<T>(url: string, options: FetchOptions = {}): Promise<T> {
     const {
       retries = 3,
       timeout = 5000,
@@ -301,44 +302,46 @@ class RobustAPIClient {
 
     this.stats.totalRequests++;
 
-    return this.queue.add(
-      async () => {
-        const response = await pRetry(
-          async () => {
-            const result = await pTimeout(fetch(url), timeout);
-            return result.json();
-          },
-          {
-            retries,
-            minTimeout: 500,
-            maxTimeout: 10000,
-            randomizationFactor: 0.1,
-            onFailedAttempt: (error) => {
-              if (debug) {
-                console.warn(
-                  `[${url}] Attempt ${error.attemptNumber} failed:`,
-                  error.message
-                );
-              }
+    return this.queue
+      .add(
+        async () => {
+          const response = await pRetry(
+            async () => {
+              const result = await pTimeout(fetch(url), timeout);
+              return result.json();
             },
-          }
-        );
+            {
+              retries,
+              minTimeout: 500,
+              maxTimeout: 10000,
+              randomizationFactor: 0.1,
+              onFailedAttempt: (error) => {
+                if (debug) {
+                  console.warn(
+                    `[${url}] Attempt ${error.attemptNumber} failed:`,
+                    error.message,
+                  );
+                }
+              },
+            },
+          );
 
-        return debug
-          ? pTap(response, (data) => {
-              console.log(`[${url}] Success:`, {
-                timestamp: new Date().toISOString(),
-                items: Array.isArray(data) ? data.length : 'single',
-              });
-            })
-          : response;
-      },
-      { priority }
-    ).catch((error) => {
-      this.stats.failedRequests++;
-      console.error(`[${url}] Request failed:`, error);
-      throw error;
-    });
+          return debug
+            ? pTap(response, (data) => {
+                console.log(`[${url}] Success:`, {
+                  timestamp: new Date().toISOString(),
+                  items: Array.isArray(data) ? data.length : "single",
+                });
+              })
+            : response;
+        },
+        { priority },
+      )
+      .catch((error) => {
+        this.stats.failedRequests++;
+        console.error(`[${url}] Request failed:`, error);
+        throw error;
+      });
   }
 
   getStats(): ClientStats {
@@ -360,7 +363,7 @@ class RobustAPIClient {
 const api = new RobustAPIClient();
 
 // High-priority request
-api.fetch('/api/critical-data', {
+api.fetch("/api/critical-data", {
   retries: 5,
   timeout: 3000,
   priority: 10,
@@ -368,21 +371,21 @@ api.fetch('/api/critical-data', {
 });
 
 // Standard requests
-api.fetch('/api/users', { priority: 5, debug: true });
-api.fetch('/api/posts', { priority: 5 });
+api.fetch("/api/users", { priority: 5, debug: true });
+api.fetch("/api/posts", { priority: 5 });
 
 // Low-priority request
-api.fetch('/api/analytics', { priority: 1 });
+api.fetch("/api/analytics", { priority: 1 });
 
 // Monitor progress
 setInterval(() => {
   const stats = api.getStats();
-  console.log('API Stats:', stats);
+  console.log("API Stats:", stats);
 }, 1000);
 
 // Wait for all requests
 const finalStats = await api.waitForCompletion();
-console.log('All requests complete:', finalStats);
+console.log("All requests complete:", finalStats);
 ```
 
 ---
@@ -423,20 +426,20 @@ Are you building:
 
 ## Key Patterns Summary
 
-| Pattern | Tools | Use Case |
-|---------|-------|----------|
-| **Triple Defense** | p-throttle + p-retry + p-timeout | Rate-limited APIs |
-| **Resilient Queue** | p-queue + p-retry + monitoring | Batch operations |
-| **Nested Concurrency** | p-all + p-limit (multiple levels) | Hierarchical fetching |
-| **Full Pipeline** | p-queue + p-retry + p-timeout + p-tap | Production systems |
-| **Batch + Concurrency** | Batch processor + p-queue + p-retry | Bulk inserts |
+| Pattern                 | Tools                                 | Use Case              |
+| ----------------------- | ------------------------------------- | --------------------- |
+| **Triple Defense**      | p-throttle + p-retry + p-timeout      | Rate-limited APIs     |
+| **Resilient Queue**     | p-queue + p-retry + monitoring        | Batch operations      |
+| **Nested Concurrency**  | p-all + p-limit (multiple levels)     | Hierarchical fetching |
+| **Full Pipeline**       | p-queue + p-retry + p-timeout + p-tap | Production systems    |
+| **Batch + Concurrency** | Batch processor + p-queue + p-retry   | Bulk inserts          |
 
 ---
 
 ## Related
 
 - [Queuing Strategies Fundamentals](queuing-strategies.md) — p-limit, p-queue, batch processing basics
-- [Complete p-* Utilities Guide](p-utilities-complete-guide.md) — All individual p-* tools
+- [Complete p-\* Utilities Guide](p-utilities-complete-guide.md) — All individual p-\* tools
 - [Queue Performance & Tuning](queue-performance-and-tuning.md) — Performance, monitoring, resource limits
 - [Backpressure in Node.js Streams](backpressure.md) — Automatic flow control
 - [Node.js Stream Concurrency Overview](node-stream-concurrency.md) — Full integration pattern
