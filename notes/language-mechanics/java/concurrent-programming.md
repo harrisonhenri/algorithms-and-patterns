@@ -1,13 +1,30 @@
 ---
-tags: [java, concurrency, theory]
-title: "Java concurrent programming"
+tags: [java, concurrency, theory, multithreading, synchronization]
+title: "Java Concurrent Programming"
 ---
 
 # Concurrent Programming (Java)
 
+## Important Context
+
+Unlike Node.js, Java applications commonly execute many operating system threads simultaneously. Because multiple threads may access the same memory concurrently, Java concurrency focuses heavily on:
+
+- Mutual exclusion (preventing simultaneous access)
+- Memory visibility (ensuring thread updates are observed by others)
+- Coordination (synchronizing between threads)
+- Ordering guarantees (happens-before relationships)
+- Throughput under contention (performance with lock contention)
+
+The Java ecosystem provides a rich concurrency toolkit through:
+
+- JVM synchronization primitives
+- `java.util.concurrent` package
+- Lock-free atomic structures
+- Coordination utilities
+
 ---
 
-## Core concepts
+## Core Concepts
 
 ### Visibility vs Atomicity
 
@@ -20,7 +37,7 @@ Two distinct problems must be solved when sharing data between threads:
 
 ---
 
-## Low-level primitives
+## Low-Level Primitives
 
 ### `volatile`
 
@@ -35,7 +52,7 @@ class Flag {
 }
 ```
 
-> Use when: one thread writes, others only read, and the write is a **single assignment** (not read-modify-write).
+**Use when:** one thread writes, others only read, and the write is a **single assignment** (not read-modify-write).
 
 ### `synchronized`
 
@@ -55,9 +72,21 @@ class Counter {
 }
 ```
 
-> Reentrancy: a thread that already holds a lock can re-enter `synchronized` blocks on the same object.
+**Characteristics:**
 
-### Atomic variables (`java.util.concurrent.atomic`)
+- Automatic unlock on exit
+- Reentrant (a thread that already holds a lock can re-enter `synchronized` blocks on the same object)
+- JVM optimized
+- Easy to use
+
+**Limitations:**
+
+- Cannot timeout while waiting
+- Cannot interrupt blocked acquisition
+- Only one intrinsic condition queue
+- Less flexible than explicit locks
+
+### Atomic Variables (`java.util.concurrent.atomic`)
 
 Lock-free thread-safe operations on a **single variable**, implemented via **CAS (Compare-And-Swap)** hardware instructions — no blocking.
 
@@ -75,6 +104,12 @@ counter.incrementAndGet();           // thread-safe, no lock
 counter.compareAndSet(1, 2);        // CAS: set to 2 only if current value is 1
 ```
 
+Here is the improved explanation. The previous example was slightly flawed because in lock-free linked lists, the ABA problem typically manifests when manipulating the `head` pointer (like in a Treiber Stack), causing the data structure to point to a freed or disconnected node.
+
+The revised version uses the classic lock-free stack scenario, which is the industry standard for illustrating the ABA problem.
+
+---
+
 #### CAS (Compare-And-Swap)
 
 The fundamental primitive behind lock-free algorithms. Hardware (e.g., `CMPXCHG` on x86) atomically:
@@ -83,51 +118,79 @@ The fundamental primitive behind lock-free algorithms. Hardware (e.g., `CMPXCHG`
 2. Compares it with an expected value.
 3. Writes a new value **only if** the current == expected.
 
-```
+```text
 CAS(variable, expected, newValue):
   if variable == expected:
     variable = newValue → return true
   else:
     return false  (caller retries)
-```
-
-**ABA problem:** a value changes A → B → A between a read and a CAS, making the CAS succeed incorrectly.
-
-**Concrete example:** removing a node from a linked list:
 
 ```
-Initial:  list = [A → B → C]
 
-Thread 1: reads node = A           # stores reference to A
-Thread 1: reads node.next = B      # plans to set it to C
-Thread 2: removes A from list      # list = [B → C]
-Thread 2: adds A back              # list = [A → B → C]
-Thread 1: CAS(A.next, B, C)        # succeeds because A.next is still B!
-         # but A was removed & re-added, causing logical errors
+**ABA problem:** A value changes from **A** → **B** → back to **A** between a read and a CAS. The CAS succeeds because the value looks unchanged, but the underlying state or context of the data structure has actually been modified.
+
+**Concrete example (Lock-Free Stack):**
+Imagine a stack where threads are popping and pushing nodes.
+
+```text
+Initial Stack:  Top → A → B → C
+
+Thread 1: wants to pop().
+          reads Top = A
+          reads A.next = B
+          (Plans to CAS(Top, A, B) to make B the new Top)
+          **[Thread 1 is preempted by the OS and pauses]**
+
+Thread 2: pops A.            # Stack: Top → B → C
+Thread 2: pops B.            # Stack: Top → C  (Node B is freed/deleted)
+Thread 2: pushes A back.     # Stack: Top → A → C
+
+Thread 1: wakes up and executes its CAS:
+          CAS(Top, A, B)
+          # Compares Top to A. They match! CAS succeeds.
+          # Sets Top = B.
+
 ```
 
-The issue: CAS only compares the reference value (A), not the semantic state. `AtomicStampedReference<V>` adds a **stamp** (version counter) that increments on each update:
+**The Crash:** Thread 1 successfully sets `Top` to **B**. However, **B** was already removed by Thread 2! The stack is now corrupted, pointing to garbage memory, and node **C** is lost entirely.
+
+**Solution:** `AtomicStampedReference<V>` fixes this by attaching a **stamp** (version counter) to the reference, which increments on every update. Both the reference and the stamp must match for the CAS to succeed:
 
 ```java
-AtomicStampedReference<Node> ref = new AtomicStampedReference<>(nodeA, 0);
-int stamp = ref.getStamp();              // 0
-ref.compareAndSet(nodeA, nodeB, 0, 1); // succeeds, stamp increments to 1
+// Initialize reference to nodeA with a stamp of 0
+AtomicStampedReference<Node> top = new AtomicStampedReference<>(nodeA, 0);
 
-// Even if nodeA is re-added later with a different stamp, the old stamp won't match
-ref.compareAndSet(nodeA, nodeC, 0, 1); // fails because stamp is now > 1
+// Thread 1 reads the value and the current stamp
+Node expectedNode = top.getReference();  // nodeA
+int expectedStamp = top.getStamp();      // 0
+
+// ... Meanwhile, Thread 2 modifies the stack, bumping the stamp to 3 ...
+
+// Thread 1 attempts CAS.
+// Fails because the stamp is now 3 (0 != 3), even though the node is A again!
+boolean success = top.compareAndSet(
+    expectedNode, nodeB,          // expected reference, new reference
+    expectedStamp, expectedStamp + 1 // expected stamp, new stamp
+);
+
 ```
 
 #### Adders (`LongAdder`)
 
-Higher throughput than `AtomicLong` under **write-heavy contention** by maintaining a **striped array of cells** — each thread typically updates its own cell. `sum()` aggregates all cells. Trade-off: higher memory usage, `sum()` is not atomic with respect to updates.
+Higher throughput than `AtomicLong` under **write-heavy contention** by maintaining a **striped array of cells** — each thread typically updates its own cell. `sum()` aggregates all cells.
 
-> Use `AtomicLong` when you need an **exact snapshot**. Use `LongAdder` when writes vastly outnumber reads (e.g., counters, statistics).
+**Trade-off:** higher memory usage, `sum()` is not atomic with respect to updates.
+
+**Usage guide:**
+
+- Use `AtomicLong` when you need an **exact snapshot**
+- Use `LongAdder` when writes vastly outnumber reads (e.g., counters, statistics)
 
 ---
 
-## Thread execution
+## Thread Execution
 
-### Creating threads
+### Creating Threads
 
 ```java
 // Runnable — no return value, no checked exception
@@ -157,7 +220,7 @@ executor.shutdown();           // waits for in-flight tasks
 executor.shutdownNow();        // interrupts all running tasks, returns pending list
 ```
 
-#### Thread pool types
+#### Thread Pool Types
 
 | Factory                     | Behaviour                                                |
 | --------------------------- | -------------------------------------------------------- |
@@ -175,7 +238,7 @@ scheduler.scheduleAtFixedRate(() -> System.out.println("tick"), 0, 1, TimeUnit.S
 scheduler.scheduleWithFixedDelay(task, 0, 500, TimeUnit.MILLISECONDS); // delay measured from task end
 ```
 
-### CompletableFuture (async pipelines)
+### CompletableFuture (Async Pipelines)
 
 Non-blocking, composable async computations introduced in Java 8.
 
@@ -190,9 +253,9 @@ CompletableFuture.supplyAsync(() -> fetchUser(id))     // runs in ForkJoinPool
 
 ---
 
-## Monitors & explicit locks (`java.util.concurrent.locks`)
+## Monitors & Explicit Locks (`java.util.concurrent.locks`)
 
-### Intrinsic monitor (`synchronized` + `wait/notify`)
+### Intrinsic Monitor (`synchronized` + `wait/notify`)
 
 Every Java object has a built-in monitor. `wait()` releases the lock and suspends the thread; `notify()` / `notifyAll()` wakes waiting threads.
 
@@ -224,11 +287,19 @@ if (lock.tryLock(100, TimeUnit.MILLISECONDS)) {
 }
 ```
 
-> A re-acquired lock by the same thread increments a hold count; `unlock()` decrements it. Thread releases when count reaches 0.
+**Key point:** A re-acquired lock by the same thread increments a hold count; `unlock()` decrements it. Thread releases when count reaches 0.
+
+**Advantages over `synchronized`:**
+
+- `tryLock()` for non-blocking attempts
+- `lockInterruptibly()` for cancellation support
+- Fairness configuration
+- Multiple `Condition` variables for advanced coordination
+- Explicit lock management
 
 ### ReentrantReadWriteLock
 
-Separates read and write access — multiple concurrent readers are allowed as long as no writer holds the lock. Optimises **read-heavy** workloads.
+Separates read and write access — multiple concurrent readers are allowed as long as no writer holds the lock. Optimizes **read-heavy** workloads.
 
 ```java
 ReadWriteLock rwLock = new ReentrantReadWriteLock();
@@ -241,6 +312,13 @@ try { /* read */ } finally { rwLock.readLock().unlock(); }
 rwLock.writeLock().lock();
 try { /* write */ } finally { rwLock.writeLock().unlock(); }
 ```
+
+**Best use cases:**
+
+- In-memory caches
+- Configuration stores
+- Shared dictionaries
+- Read-heavy systems
 
 ### StampedLock (Java 8+)
 
@@ -262,6 +340,18 @@ long ws = sl.writeLock();
 try { this.value = newValue; } finally { sl.unlockWrite(ws); }
 ```
 
+**Advantages:**
+
+- Very high read throughput
+- Reduced lock contention
+- Efficient optimistic reads
+
+**Limitations:**
+
+- Not reentrant
+- More complex than `ReadWriteLock`
+- Easier to misuse; subtle bugs if validation is skipped
+
 ---
 
 ## Semaphores
@@ -279,11 +369,18 @@ try {
 }
 ```
 
-> Unlike a lock, a semaphore is **not ownership-based** — any thread can release a permit.
+**Key difference from locks:** A semaphore is **not ownership-based** — any thread can release a permit.
+
+**Best use cases:**
+
+- Database connection pools
+- Thread throttling
+- Rate limiting
+- Resource management
 
 ---
 
-## Concurrent collections (`java.util.concurrent`)
+## Concurrent Collections (`java.util.concurrent`)
 
 Thread-safe collections that avoid coarse-grained locking for better throughput.
 
@@ -320,7 +417,7 @@ latch.await(); // blocks until count reaches 0
 
 ---
 
-## Common concurrency pitfalls
+## Common Concurrency Pitfalls
 
 | Problem            | Description                                                                                 | Prevention                                       |
 | ------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------ |
@@ -340,6 +437,22 @@ This table helps you select the right tool based on your scenario. Key criteria:
 - **Scope:** what you need to synchronise (single variable, multiple, coordination)
 - **Contention:** expected thread conflict level (low, medium, high)
 - **Throughput:** blocking vs. lock-free performance
+
+### Quick Decision Table
+
+| Requirement                  | Recommended Primitive      |
+| ---------------------------- | -------------------------- |
+| Simple mutual exclusion      | `synchronized`             |
+| Timeout / interruption       | `ReentrantLock`            |
+| Limit concurrent access      | `Semaphore`                |
+| Read-heavy shared state      | `ReadWriteLock`            |
+| Extreme read performance     | `StampedLock`              |
+| Fast thread-safe counter     | `AtomicInteger`            |
+| High-contention counters     | `LongAdder`                |
+| Wait for tasks to finish     | `CountDownLatch`           |
+| Synchronize execution phases | `CyclicBarrier` / `Phaser` |
+
+### Comprehensive Decision Matrix
 
 | Primitive                        | Problem                    | Scope                  | Contention  | Blocking                | Best for                                                                       |
 | -------------------------------- | -------------------------- | ---------------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------ |
@@ -361,7 +474,7 @@ This table helps you select the right tool based on your scenario. Key criteria:
 
 ---
 
-## `happens-before` guarantee
+## Memory Visibility: Happens-Before Guarantees
 
 The Java Memory Model defines a **happens-before** relationship: if action A happens-before action B, the effects of A are guaranteed visible to B.
 
@@ -372,3 +485,50 @@ Key edges in the happens-before graph:
 - `Thread.start()` **happens-before** any action in the started thread.
 - All actions in a thread **happen-before** `Thread.join()` returns.
 - `CompletableFuture` completion **happens-before** dependent stages.
+
+**Key principle:** Without proper visibility guarantees, one thread may not observe updates made by another thread, leading to subtle, hard-to-debug race conditions.
+
+---
+
+## Java vs Node.js
+
+Java uses preemptive OS threads with shared mutable memory — the central question is "how many threads may access this simultaneously?"
+
+Node.js uses a single-threaded cooperative event loop — the central question is "how many async operations may run concurrently?"
+
+See [Concurrency Across Languages](../concurrency-across-languages-and-models.md) for the full cross-language comparison.
+
+---
+
+## Rule of Thumb
+
+### Prefer Simplicity First
+
+Start with:
+
+- `synchronized`
+- Executors
+- Standard concurrent collections
+
+Only move toward advanced primitives when measurements justify additional complexity.
+
+### Performance Without Measurement Is Dangerous
+
+Concurrency optimizations frequently introduce:
+
+- Deadlocks
+- Starvation
+- Priority inversion
+- Livelocks
+- Visibility bugs
+- Throughput collapse under contention
+
+Always benchmark and profile before introducing lower-level synchronization strategies.
+
+---
+
+## See Also
+
+- [Scheduling Models](../scheduling-models.md) — Processes, threads, futures, coroutines
+- [Node.js Concurrent Programming](../javascript-typescript/concurrent-programming.md) — Async-focused concurrency
+- [Concurrency Across Languages](../concurrency-across-languages-and-models.md) — Comparative guide

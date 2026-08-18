@@ -105,30 +105,30 @@ Used for object creation mechanisms.
 
 ## Implementations in this Repository
 
-| Pattern                     | Category   | Source                                                                    | Complexity | Status |
-| --------------------------- | ---------- | ------------------------------------------------------------------------- | ---------- | ------ |
-| **Adapter**                 | Structural | [patterns/structural/adapter/](../../../patterns/structural/adapter/)     | Low        | ✅     |
-| **Bridge**                  | Structural | [patterns/structural/bridge/](../../../patterns/structural/bridge/)       | Medium     | ✅     |
-| **Proxy**                   | Structural | [patterns/structural/proxy/](../../../patterns/structural/proxy/)         | Low        | ✅     |
-| **Decorator**               | Structural | [patterns/structural/decorator/](../../../patterns/structural/decorator/) | Medium     | ✅     |
-| **Facade**                  | Structural | [patterns/structural/facade/](../../../patterns/structural/facade/)       | Low        | ✅     |
-| **Composite**               | Structural | patterns/structural/composite/                                            | Medium     | ⏳     |
-| **Flyweight**               | Structural | patterns/structural/flyweight/                                            | High       | ⏳     |
-| **Command**                 | Behavioral | [patterns/behavioral/command/](../../../patterns/behavioral/command/)     | Low        | ✅     |
-| **Observer**                | Behavioral | [patterns/behavioral/observer/](../../../patterns/behavioral/observer/)   | Low        | ✅     |
-| **State**                   | Behavioral | [patterns/behavioral/state/](../../../patterns/behavioral/state/)         | Medium     | ✅     |
-| **Strategy**                | Behavioral | [patterns/behavioral/strategy/](../../../patterns/behavioral/strategy/)   | Low        | ✅     |
-| **Template Method**         | Behavioral | [patterns/behavioral/template/](../../../patterns/behavioral/template/)   | Low        | ✅     |
-| **Chain of Responsibility** | Behavioral | patterns/behavioral/chain/                                                | Medium     | ⏳     |
-| **Iterator**                | Behavioral | patterns/behavioral/iterator/                                             | Low        | ⏳     |
-| **Mediator**                | Behavioral | patterns/behavioral/mediator/                                             | Medium     | ⏳     |
-| **Memento**                 | Behavioral | patterns/behavioral/memento/                                              | Medium     | ⏳     |
-| **Visitor**                 | Behavioral | patterns/behavioral/visitor/                                              | High       | ⏳     |
-| **Singleton**               | Creational | patterns/creational/singleton/                                            | Low        | ⏳     |
-| **Factory Method**          | Creational | patterns/creational/factory/                                              | Low        | ⏳     |
-| **Abstract Factory**        | Creational | patterns/creational/abstract-factory/                                     | Medium     | ⏳     |
-| **Builder**                 | Creational | patterns/creational/builder/                                              | Low        | ⏳     |
-| **Prototype**               | Creational | patterns/creational/prototype/                                            | Low        | ⏳     |
+| Pattern                     | Category   | Source                                                                               | Complexity | Status |
+| --------------------------- | ---------- | ------------------------------------------------------------------------------------ | ---------- | ------ |
+| **Adapter**                 | Structural | [patterns/structural/adapter/](../../patterns/structural/adapter/)                   | Low        | ✅     |
+| **Bridge**                  | Structural | [patterns/structural/bridge/](../../patterns/structural/bridge/)                     | Medium     | ✅     |
+| **Proxy**                   | Structural | [patterns/structural/proxy/](../../patterns/structural/proxy/)                       | Low        | ✅     |
+| **Decorator**               | Structural | [patterns/structural/decorator/](../../patterns/structural/decorator/)               | Medium     | ✅     |
+| **Facade**                  | Structural | [patterns/structural/facade/](../../patterns/structural/facade/)                     | Low        | ✅     |
+| **Composite**               | Structural | [patterns/structural/composite/](../../patterns/structural/composite/)               | Medium     | ⏳     |
+| **Flyweight**               | Structural | [patterns/structural/flyweight/](../../patterns/structural/flyweight/)               | High       | ⏳     |
+| **Command**                 | Behavioral | [patterns/behavioral/command/](../../patterns/behavioral/command/)                   | Low        | ✅     |
+| **Observer**                | Behavioral | [patterns/behavioral/observer/](../../patterns/behavioral/observer/)                 | Low        | ✅     |
+| **State**                   | Behavioral | [patterns/behavioral/state/](../../patterns/behavioral/state/)                       | Medium     | ✅     |
+| **Strategy**                | Behavioral | [patterns/behavioral/strategy/](../../patterns/behavioral/strategy/)                 | Low        | ✅     |
+| **Template Method**         | Behavioral | [patterns/behavioral/template/](../../patterns/behavioral/template/)                 | Low        | ✅     |
+| **Chain of Responsibility** | Behavioral | [patterns/behavioral/chain/](../../patterns/behavioral/chain/)                       | Medium     | ⏳     |
+| **Iterator**                | Behavioral | [patterns/behavioral/iterator/](../../patterns/behavioral/iterator/)                 | Low        | ⏳     |
+| **Mediator**                | Behavioral | [patterns/behavioral/mediator/](../../patterns/behavioral/mediator/)                 | Medium     | ⏳     |
+| **Memento**                 | Behavioral | [patterns/behavioral/memento/](../../patterns/behavioral/memento/)                   | Medium     | ⏳     |
+| **Visitor**                 | Behavioral | [patterns/behavioral/visitor/](../../patterns/behavioral/visitor/)                   | High       | ⏳     |
+| **Singleton**               | Creational | [patterns/creational/singleton/](../../patterns/creational/singleton/)               | Low        | ⏳     |
+| **Factory Method**          | Creational | [patterns/creational/factory/](../../patterns/creational/factory/)                   | Low        | ⏳     |
+| **Abstract Factory**        | Creational | [patterns/creational/abstract-factory/](../../patterns/creational/abstract-factory/) | Medium     | ⏳     |
+| **Builder**                 | Creational | [patterns/creational/builder/](../../patterns/creational/builder/)                   | Low        | ⏳     |
+| **Prototype**               | Creational | [patterns/creational/prototype/](../../patterns/creational/prototype/)               | Low        | ⏳     |
 
 ---
 
