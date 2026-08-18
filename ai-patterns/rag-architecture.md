@@ -180,24 +180,13 @@ ColBERT-style architectures retain **multiple contextualized vectors** per docum
 
 ### 1. Lexical Retrieval (BM25)
 
-BM25 scoring is approximately:
+BM25 is the classical lexical ranking function that combines **term frequency** (TF), **inverse document frequency** (IDF), with term-frequency saturation and document-length normalization.
 
-```
-BM25(q, d) = sum over terms t in q of:
-  IDF(t) × f(t,d) × (k1 + 1)
-             ─────────────────────────────────────────────
-             f(t,d) + k1 × (1 - b + b × |d| / avgdl)
+**Strengths:** Excellent exact matching, extremely fast, interpretable scoring, great for rare terminology (names, product IDs, error messages, domain-specific terms).
 
-f(t,d)  = frequency of term t in document d
-|d|     = document length
-avgdl   = average document length
-k1      = term-frequency saturation parameter
-b       = document-length normalization parameter
-```
+**Weaknesses:** Synonym mismatch, paraphrase mismatch, weak semantic understanding.
 
-**Strengths:** excellent exact matching, extremely fast, interpretable scoring, great for rare terminology.
-
-**Weaknesses:** synonym mismatch, paraphrase mismatch, weak semantic understanding.
+> **For detailed formulas, tuning parameters, and implementation guidance**, see [Lexical Ranking: TF, IDF, and BM25](../../notes/system-design/text-and-lexical-search.md#lexical-ranking-tf-idf-and-bm25) in the text-and-lexical-search reference.
 
 ### 2. Dense Vector Retrieval
 
