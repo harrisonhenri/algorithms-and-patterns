@@ -16,6 +16,15 @@ tags:
 
 This document provides a deep dive into text search algorithms, focusing exclusively on **lexical (keyword-based) search** and **approximate string matching (fuzzy search)**. It covers everything from basic data structures like inverted indexes to advanced fuzzy search implementations used in modern search engines, explicitly excluding vector-based or semantic search.
 
+A useful mental model is to separate a lexical search engine into four concerns:
+
+1. **Analysis** — transform raw text and the query into searchable terms.
+2. **Candidate retrieval** — use the inverted index and related structures to find potentially matching documents.
+3. **Scoring / ranking** — assign relevance scores such as BM25 to the candidates.
+4. **Query execution infrastructure** — optimize traversal, caching, compression, sharding, merging, and near-real-time indexing.
+
+This distinction is important: **the inverted index primarily makes candidate retrieval efficient; BM25 is a ranking function applied to matching candidates.** Fuzzy search adds another candidate-generation step by expanding an input term into one or more indexed terms.
+
 ---
 
 ## 1. Exact Lexical Search
@@ -24,12 +33,20 @@ Exact lexical search forms the foundation of traditional information retrieval. 
 
 ### Inverted Indexes and Positional Indexes
 
-The **inverted index** is the core data structure of almost all lexical search engines. Instead of scanning documents for terms (which is $O(N)$), it maps terms to the documents containing them.
+The **inverted index** is the core data structure of almost all lexical search engines. Instead of scanning documents for terms (which is O(N)), it maps terms to the documents containing them.
 
-- **Dictionary/Vocabulary:** A sorted list of all unique terms across the corpus.
+- **Dictionary/Vocabulary:** The set of unique indexed terms, usually stored in a structure optimized for lookup, traversal, and prefix operations. It is often represented using compressed structures such as tries or FSTs rather than literally as an in-memory sorted array.
 - **Postings List:** For each term, a list of document IDs (and often term frequencies) where the term occurs.
 
 To support advanced querying, standard inverted indexes are extended into **positional indexes**. A positional index stores not just the document ID, but also the exact token positions of the term within that document.
+
+A useful terminology distinction:
+
+- **Inverted index** — the overall term → postings data structure.
+- **Posting / postings list** — the entries associated with one term, normally containing document IDs and optionally frequencies, positions, offsets, payloads, etc.
+- **Positional inverted index** — an inverted index whose postings include token positions.
+
+Thus, a posting list is not an alternative to an inverted index; it is a component of the inverted index.
 
 - _Example:_ `term "apple" -> Doc 1: [pos 3, 15]; Doc 5: [pos 1]`
 
@@ -90,21 +107,58 @@ Before indexing, text is normalized through a pipeline:
 
 Once matching documents are found, they must be ranked by relevance.
 
+There are two conceptually different stages:
+
+```text
+Query
+  ↓
+Term lookup / postings traversal
+  ↓
+Matching candidate documents
+  ↓
+Lexical scoring (e.g. BM25)
+  ↓
+Top-K results
+```
+
+For a simple Boolean query, matching can be treated as a filtering operation. For ranked retrieval, however, the engine usually evaluates scoring information while traversing postings so it can efficiently maintain the best candidates.
+
 ### TF (Term Frequency)
 
 Measures how often a term appears in a document. The assumption is that the more frequently a term appears, the more relevant the document is to that term.
 
-- _Formula (raw):_ $f_{t,d}$ (count of term $t$ in doc $d$)
+- _Formula (raw):_ `f(t, d)` (count of term `t` in doc `d`)
 
 ### IDF (Inverse Document Frequency)
 
 Measures how important or rare a term is across the entire corpus. Words like "the" have a very low IDF, while rare words like "xylophone" have a high IDF.
 
-- _Formula:_ $\log\left(\frac{N}{df_t}\right)$ where $N$ is total documents and $df_t$ is the number of documents containing term $t$.
+- _Formula:_ `log(N / df_t)` where `N` is total documents and `df_t` is the number of documents containing term `t`.
 
 ### BM25 (Best Matching 25)
 
-BM25 is the state-of-the-art lexical ranking function, improving upon basic TF-IDF by introducing **term frequency saturation** (preventing documents from being artificially boosted just by repeating a term) and **document length normalization** (penalizing excessively long documents).
+BM25 is a widely used and highly effective lexical ranking function, improving upon basic TF-IDF by introducing **term frequency saturation** (preventing documents from being artificially boosted just by repeating a term) and **document length normalization** (adjusting for differences in document length).
+
+For a query with terms $t$, a common form is:
+
+$$
+\mathrm{BM25}(d,q)
+=
+\sum_{t\in q}
+\mathrm{IDF}(t)
+\frac{f(t,d)(k_1+1)}
+{f(t,d)+k_1\left(1-b+b\frac{|d|}{\mathrm{avgdl}}\right)}
+$$
+
+where:
+
+- $f(t,d)$ is the term frequency in document $d$;
+- $|d|$ is the document length;
+- $\mathrm{avgdl}$ is the average document length;
+- $k_1$ controls TF saturation;
+- $b$ controls document-length normalization.
+
+**Important:** BM25 does not normally score every document in the corpus for every query. The index is first used to identify documents containing the query terms; scoring is then performed over the relevant candidate set during query execution.
 
 - _Formula components:_
   - $k_1$: Controls non-linear term frequency saturation (usually 1.2 to 2.0).
@@ -116,16 +170,23 @@ BM25 is the state-of-the-art lexical ranking function, improving upon basic TF-I
 
 When users make typos, exact matching fails. **Approximate string matching (fuzzy search)** identifies strings that are "close" to the query based on specific distance metrics.
 
+There are two useful levels to distinguish:
+
+- **Term-level fuzzy matching:** find indexed terms close to the user's input, e.g. `elastc` → `elastic`.
+- **Document-level similarity:** compare larger pieces of text, such as documents or shingles, using Jaccard similarity, MinHash, or other techniques.
+
+The first is commonly used for spell correction and fuzzy term queries; the second is useful for near-duplicate detection and large-scale similarity filtering.
+
 ### Edit Distances
 
-1.  **Hamming Distance:** Measures the minimum number of substitutions required to change one string into another. _Constraint: Strings must be of equal length._
-2.  **Levenshtein Distance:** The minimum number of single-character edits (insertions, deletions, or substitutions) required to change one word into another.
-3.  **Damerau-Levenshtein Distance:** An extension of Levenshtein that also allows the _transposition_ of two adjacent characters (e.g., `teh` → `the`) as a single operation. This is highly effective for human typing errors.
+1. **Hamming Distance:** Measures the minimum number of substitutions required to change one string into another. _Constraint: Strings must be of equal length._
+2. **Levenshtein Distance:** The minimum number of single-character edits (insertions, deletions, or substitutions) required to change one word into another.
+3. **Damerau-Levenshtein Distance:** An extension of Levenshtein that also allows the _transposition_ of two adjacent characters (e.g., `teh` → `the`) as a single operation. This is highly effective for human typing errors.
 
 ### Similarity Metrics
 
-1.  **Jaro Similarity:** Accounts for matching characters and transpositions, giving higher scores to prefixes that match.
-2.  **Jaro-Winkler Similarity:** Modifies Jaro by heavily boosting scores for strings that share a common prefix (usually up to 4 characters), aligning well with how people naturally type (typos usually occur later in the word).
+1. **Jaro Similarity:** Accounts for matching characters and transpositions, giving higher scores to prefixes that match.
+2. **Jaro-Winkler Similarity:** Modifies Jaro by heavily boosting scores for strings that share a common prefix (usually up to 4 characters), aligning well with how people naturally type (typos usually occur later in the word).
 
 ---
 
@@ -142,9 +203,9 @@ Computing edit distance against a whole dictionary is computationally expensive.
 
 Phonetic algorithms encode words based on how they sound, allowing systems to match words that are spelled differently but pronounced similarly (e.g., "Smith" and "Smythe").
 
-1.  **Soundex:** One of the oldest algorithms, primarily indexing names by sound as pronounced in English. It encodes a word into a letter followed by three numerical digits (e.g., `S530`).
-2.  **Metaphone:** An improvement over Soundex that uses a wider set of rules for English pronunciation.
-3.  **Double Metaphone:** A further refinement that returns two phonetic codes (primary and secondary) for a word, accommodating multiple pronunciations and non-English European/Asian names.
+1. **Soundex:** One of the oldest algorithms, primarily indexing names by sound as pronounced in English. It encodes a word into a letter followed by three numerical digits (e.g., `S530`).
+2. **Metaphone:** An improvement over Soundex that uses a wider set of rules for English pronunciation.
+3. **Double Metaphone:** A further refinement that returns two phonetic codes (primary and secondary) for a word, accommodating multiple pronunciations and non-English European/Asian names.
 
 ---
 
@@ -185,6 +246,8 @@ $$J(A,B) = \frac{|A \cap B|}{|A \cup B|}$$
 
 Computing Jaccard similarity across millions of document sets is too slow. MinHash solves this by creating a fixed-size "signature" for each document:
 
+> **Nuance:** MinHash approximates **Jaccard similarity of sets**. It is therefore a good fit for shingle-based near-duplicate detection, but it is not a replacement for BM25, embeddings, or edit distance. It answers a different similarity question.
+
 - A set of $k$ random hash functions is applied to every shingle in a document.
 - For each hash function, the minimum hash value produced across all the document's shingles is recorded.
 - **The Magic Property:** The probability that two sets produce the same minimum hash value is exactly equal to their Jaccard Similarity.
@@ -197,7 +260,15 @@ To quickly find candidates that share high similarity without scanning all signa
 - Each band is hashed into a series of buckets.
 - If two documents hash to the exact same bucket in at least one band, they are flagged as candidate matches.
 
-This creates a sharp probability threshold, allowing systems to instantly retrieve documents with a lexical overlap (e.g., >80% shared N-grams) in sub-linear time.
+This creates a sharp probability transition around a configurable similarity threshold. The commonly cited probability for a candidate is:
+
+$$
+P(\text{candidate}) = 1-(1-s^r)^b
+$$
+
+where $s$ is the Jaccard similarity, $r$ is the number of rows per band, and $b$ is the number of bands.
+
+The threshold is therefore probabilistic rather than a hard guarantee. LSH is useful for candidate generation; exact Jaccard similarity can still be computed for the surviving candidates.
 
 ---
 
@@ -205,18 +276,18 @@ This creates a sharp probability threshold, allowing systems to instantly retrie
 
 A production fuzzy search system rarely relies on a single algorithm. It uses a multi-stage pipeline:
 
-1.  **Candidate Generation:** Use highly efficient methods (N-gram inverted indexes, FSTs, Phonetic tokens, or LSH bands) to retrieve a broad set of _potential_ matches.
-2.  **Pruning / Filtering:** Discard candidates that fail heuristic checks (e.g., length difference is greater than the allowed edit distance).
-3.  **Exact Distance Calculation:** Run the more expensive Damerau-Levenshtein calculation only on the surviving candidates.
-4.  **Spell Correction / Autocomplete:** For search boxes, if a term isn't in the index, the closest dictionary terms are proposed (_Did you mean?_). If typing is in progress, Trie/FST lookups provide prefix completions.
-5.  **Lexical Ranking:** The matched fuzzy terms are expanded into a boolean `OR` query (e.g., `apple OR appel OR aple`), and BM25 scores the final documents.
+1. **Candidate Generation:** Use highly efficient methods (N-gram inverted indexes, FSTs, Phonetic tokens, or LSH bands) to retrieve a broad set of _potential_ matches.
+2. **Pruning / Filtering:** Discard candidates that fail heuristic checks (e.g., length difference is greater than the allowed edit distance).
+3. **Exact Distance Calculation:** Run the more expensive Damerau-Levenshtein calculation only on the surviving candidates.
+4. **Spell Correction / Autocomplete:** For search boxes, if a term isn't in the index, the closest dictionary terms are proposed (_Did you mean?_). If typing is in progress, Trie/FST lookups provide prefix completions.
+5. **Lexical Ranking:** The matched fuzzy terms are expanded into a boolean `OR` query (e.g., `apple OR appel OR aple`), and BM25 scores the final documents.
 
 ---
 
 ## 9. Performance Trade-offs
 
 - **Index Size vs. Query Speed:** Indexing N-grams or MinHash signatures drastically inflates the index size but significantly speeds up fuzzy candidate generation.
-- **Max Edit Distance (k):** Allowing larger edit distances (e.g., $k=2$ vs $k=1$) causes the state space of a Levenshtein Automaton or the number of N-gram combinations to explode exponentially, slowing down queries. Most systems cap fuzzy search at $k=2$.
+- **Max Edit Distance (k):** Allowing larger edit distances (e.g., `k=2` vs `k=1`) substantially increases the number of possible variants and the cost of traversing the automaton or candidate space. The exact growth depends on the algorithm and term length; it is better to think of larger `k` values as causing rapidly increasing search cost, rather than claiming a universal exponential bound for every implementation. Most practical systems keep fuzzy distance small, commonly `k <= 2`.
 - **Prefix Length:** Systems often require exact matching on the first few characters (prefix requirement) to drastically reduce the search space, assuming users rarely mistype the first letter of a word.
 
 ---
@@ -235,11 +306,11 @@ A production fuzzy search system rarely relies on a single algorithm. It uses a 
 
 Apache Lucene (which powers Elasticsearch and Solr) implements these concepts meticulously:
 
-1.  **Dictionary Storage:** Lucene uses **FSTs (Finite State Transducers)** to store the term dictionary in memory, allowing for incredibly fast, low-memory term lookups.
-2.  **Fuzzy Queries:** When a user executes a fuzzy query, Lucene dynamically builds a **Levenshtein Automaton** on the fly for the query string.
-3.  **Intersection:** It intersects this automaton with the FST dictionary. This allows Lucene to find all terms within edit distance $k=1$ or $k=2$ almost instantly, without evaluating the distance of non-matching terms.
-4.  **Term Expansion:** The matched terms are then expanded into a `BooleanQuery` (a process called _Multi-term Query Rewrite_). To prevent performance death spirals on high-frequency terms, Lucene usually limits the expansion to the top $N$ terms (e.g., `max_expansions=50`) scored by BM25.
-5.  **BM25:** By default, Elasticsearch uses BM25 for scoring all matches resulting from the expansion.
+1. **Dictionary Storage:** Lucene uses **FSTs (Finite State Transducers)** to store the term dictionary in memory, allowing for incredibly fast, low-memory term lookups.
+2. **Fuzzy Queries:** When a user executes a fuzzy query, Lucene uses a **Levenshtein automaton** to represent the allowed edit-distance variations of the query term and uses it while traversing the indexed term dictionary. The important idea is that Lucene does not compare the query against every dictionary term character-by-character.
+3. **Intersection:** It intersects this automaton with the FST dictionary. This allows Lucene to find all terms within edit distance `k=1` or `k=2` almost instantly, without evaluating the distance of non-matching terms.
+4. **Term Expansion:** The matched terms are then expanded into a `BooleanQuery` (a process called _Multi-term Query Rewrite_). To prevent performance death spirals on high-frequency terms, Lucene usually limits the expansion to the top $N$ terms (e.g., `max_expansions=50`) scored by BM25.
+5. **BM25:** By default, Elasticsearch uses BM25 for scoring all matches resulting from the expansion.
 
 ---
 
@@ -260,14 +331,29 @@ Queries fan out to all shards in parallel and results are merged centrally.
 
 Queries like _"top 10 most relevant documents"_ require:
 
-1. Local ranking per shard
-2. Global merge/ranking across shard results
+> **Top-K retrieval is a major optimization problem.** A shard does not need to fully sort every matching document. Search engines use priority queues, score upper bounds, block-level statistics, and algorithms such as WAND / Block-Max WAND to avoid scoring many documents that cannot enter the global top-K.
+
+1. Local candidate generation and scoring per shard.
+2. Each shard returns its best local candidates.
+3. The coordinating node merges those candidates.
+4. The global top-K results are selected.
+
+This is a **scatter-gather** pattern. The number of shards, the requested `K`, query complexity, and network traffic all affect latency.
 
 This scatter-gather pattern is more expensive than simple key lookups on a single node.
 
-### Near Real-Time Indexing
+### Index Segments and Near Real-Time Indexing
 
-Search systems often prioritize query speed over immediate consistency. A document written now may be searchable in ~1 second — this is called **near real-time indexing**.
+Lucene-style indexes are organized into **immutable segments**. New documents are written to new segments; background processes merge smaller segments into larger ones.
+
+This has several important consequences:
+
+- Queries can search multiple segments as if they were one logical index.
+- Segment merging improves read efficiency and reclaims deleted documents.
+- Updates are commonly implemented as a new indexed version plus deletion of the old version.
+- The index is therefore optimized for high-throughput search and incremental updates rather than in-place row updates.
+
+Search systems often prioritize query speed over immediate consistency. A document written now may be searchable in a short interval — this is called **near-real-time indexing**.
 
 Common in: Elasticsearch, Solr.
 
@@ -309,7 +395,197 @@ Because transactional databases and search systems optimize for fundamentally di
 
 ---
 
-## 13. B-Tree vs Inverted Index Reference
+## 13. Query Processing: End-to-End Mental Model
+
+A simplified lexical search pipeline looks like this:
+
+```text
+                    INDEXING
+Raw documents
+     ↓
+Analysis / tokenization
+     ↓
+Terms + frequencies + positions
+     ↓
+Inverted index
+     ↓
+Term dictionary + postings + statistics
+
+
+                    QUERYING
+User query
+     ↓
+Query analysis
+     ↓
+Term lookup / fuzzy expansion
+     ↓
+Postings traversal
+     ↓
+Candidate documents
+     ↓
+BM25 / other lexical scoring
+     ↓
+Top-K optimization
+     ↓
+Shard merge
+     ↓
+Final ranked results
+```
+
+This model helps distinguish responsibilities:
+
+| Component             | Main responsibility                     |
+| --------------------- | --------------------------------------- |
+| Analyzer              | Converts text into searchable terms     |
+| Term dictionary       | Finds indexed terms efficiently         |
+| Posting list          | Finds documents containing a term       |
+| Positional postings   | Supports phrase/proximity queries       |
+| Fuzzy structures      | Find nearby indexed terms               |
+| BM25                  | Scores lexical relevance                |
+| WAND / Block-Max WAND | Avoid unnecessary scoring               |
+| Shards                | Distribute index storage and query work |
+| Segment merging       | Maintain efficient index structure      |
+
+---
+
+## 14. Key Distinctions to Remember
+
+### Inverted index vs posting list
+
+```text
+Inverted Index
+├── term dictionary
+│    ├── "apple"
+│    ├── "banana"
+│    └── "search"
+│
+└── postings
+     ├── apple  → [doc1, doc5, ...]
+     ├── banana → [doc2, doc5, ...]
+     └── search → [doc1, doc3, ...]
+```
+
+The **inverted index is the complete structure**. A **posting list is the list of postings associated with one term**.
+
+### Retrieval vs ranking
+
+```text
+Retrieval:
+"Which documents contain terms that can match my query?"
+
+Ranking:
+"Among those candidates, which documents are most relevant?"
+```
+
+The inverted index is primarily a retrieval structure. TF-IDF/BM25 are ranking models. In real engines, these stages are interleaved for efficiency, but they remain conceptually distinct.
+
+### Exact search vs fuzzy search
+
+```text
+Exact:
+query term → exact dictionary term → postings
+
+Fuzzy:
+query term
+    ↓
+Levenshtein automaton / n-gram candidate generation
+    ↓
+nearby dictionary terms
+    ↓
+postings
+    ↓
+ranking
+```
+
+### Positional index vs ordinary inverted index
+
+An ordinary postings list can answer:
+
+```text
+"Do both terms occur in this document?"
+```
+
+A positional postings list can additionally answer:
+
+```text
+"Do the terms occur next to each other?"
+"Are they within 5 tokens?"
+"What is their relative order?"
+```
+
+That extra information costs storage but enables phrase and proximity queries.
+
+### Fuzzy matching vs semantic search
+
+Fuzzy matching answers:
+
+> "Are these strings similar according to a lexical distance?"
+
+Semantic retrieval answers a different question:
+
+> "Do these texts have similar meaning?"
+
+For example:
+
+```text
+"recieve" ↔ "receive"
+```
+
+is a natural fuzzy match.
+
+But:
+
+```text
+"car" ↔ "automobile"
+```
+
+may be semantically equivalent while having a large character-level edit distance.
+
+This document focuses on the first problem.
+
+---
+
+## 15. Practical Design Checklist
+
+When designing a lexical search system, ask:
+
+1. **What analyzer should each field use?**
+   - lowercase?
+   - stemming?
+   - stop words?
+   - synonyms?
+   - language-specific normalization?
+
+2. **Do queries need positions?**
+   - If phrase/proximity queries matter, positional information is usually required.
+
+3. **What should be fuzzy?**
+   - term search?
+   - autocomplete?
+   - typo correction?
+   - near-duplicate detection?
+
+4. **How many candidates can the system tolerate?**
+   - Larger fuzzy expansions increase recall but can increase latency and scoring cost.
+
+5. **How is top-K optimized?**
+   - Priority queues?
+   - WAND / Block-Max WAND?
+   - caching?
+   - shard-level candidate limits?
+
+6. **What consistency model is acceptable?**
+   - immediate database consistency is different from near-real-time search visibility.
+
+7. **How will relevance be evaluated?**
+   - Precision / Recall for retrieval quality
+   - MRR for first-result quality
+   - NDCG for graded ranked results
+   - latency and throughput for operational performance
+
+---
+
+## 16. B-Tree vs Inverted Index Reference
 
 | Feature           | B-Tree            | Inverted Index        |
 | ----------------- | ----------------- | --------------------- |
