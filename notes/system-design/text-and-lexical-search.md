@@ -103,7 +103,7 @@ Before indexing, text is normalized through a pipeline:
 
 ---
 
-## 2. Lexical Ranking: TF, IDF, and BM25
+## 2. Lexical Ranking: TF-IDF and BM25
 
 Once matching documents are found, they must be ranked by relevance.
 
@@ -125,44 +125,195 @@ For a simple Boolean query, matching can be treated as a filtering operation. Fo
 
 ### TF (Term Frequency)
 
-Measures how often a term appears in a document. The assumption is that the more frequently a term appears, the more relevant the document is to that term.
+TF measures how often a term appears in a document. The intuition is simple:
 
-- _Formula (raw):_ `f(t, d)` (count of term `t` in doc `d`)
+> If a document repeats a term frequently, the document is more likely to be about that term.
 
-### IDF (Inverse Document Frequency)
+The simplest form is raw term frequency:
 
-Measures how important or rare a term is across the entire corpus. Words like "the" have a very low IDF, while rare words like "xylophone" have a high IDF.
-
-- _Formula:_ `log(N / df_t)` where `N` is total documents and `df_t` is the number of documents containing term `t`.
-
-### BM25 (Best Matching 25)
-
-BM25 is a widely used and highly effective lexical ranking function, improving upon basic TF-IDF by introducing **term frequency saturation** (preventing documents from being artificially boosted just by repeating a term) and **document length normalization** (adjusting for differences in document length).
-
-For a query with terms $t$, a common form is:
-
-$$
-\mathrm{BM25}(d,q)
-=
-\sum_{t\in q}
-\mathrm{IDF}(t)
-\frac{f(t,d)(k_1+1)}
-{f(t,d)+k_1\left(1-b+b\frac{|d|}{\mathrm{avgdl}}\right)}
-$$
+```text
+TF(t, d) = f(t, d)
+```
 
 where:
 
-- $f(t,d)$ is the term frequency in document $d$;
-- $|d|$ is the document length;
-- $\mathrm{avgdl}$ is the average document length;
-- $k_1$ controls TF saturation;
-- $b$ controls document-length normalization.
+- `t` = term
+- `d` = document
+- `f(t, d)` = number of occurrences of term `t` in document `d`
 
-**Important:** BM25 does not normally score every document in the corpus for every query. The index is first used to identify documents containing the query terms; scoring is then performed over the relevant candidate set during query execution.
+Example:
 
-- _Formula components:_
-  - $k_1$: Controls non-linear term frequency saturation (usually 1.2 to 2.0).
-  - $b$: Controls document length normalization (usually 0.75).
+```text
+Document:
+"distributed systems systems systems"
+
+TF("systems") = 3
+TF("distributed") = 1
+```
+
+In practice, search engines often avoid purely linear TF because repeating a word 100 times should not make a document 100× more relevant.
+
+Common alternatives include:
+
+```text
+Log-scaled TF:
+TF = 1 + log(f)
+
+Normalized TF:
+TF = f / document_length
+```
+
+### IDF (Inverse Document Frequency)
+
+IDF measures how informative or discriminative a term is across the corpus.
+
+Common words such as:
+
+```text
+the, a, is, and
+```
+
+appear in nearly every document and therefore provide little ranking value.
+
+Rare terms are much more useful:
+
+```text
+xylophone, raft-consensus, levenshtein
+```
+
+A common IDF form is:
+
+```text
+IDF(t) = log(N / df_t)
+```
+
+where:
+
+- `N` = total number of documents
+- `df_t` = number of documents containing term `t`
+
+Interpretation:
+
+- High document frequency → low IDF
+- Low document frequency → high IDF
+
+Example:
+
+```text
+Corpus size = 1,000,000 documents
+
+"the" appears in 900,000 docs
+→ very low IDF
+
+"levenshtein" appears in 500 docs
+→ high IDF
+```
+
+### TF-IDF
+
+TF-IDF combines local importance (TF) with global rarity (IDF):
+
+```text
+TF-IDF(t, d) = TF(t, d) × IDF(t)
+```
+
+This creates a simple but powerful ranking intuition:
+
+```text
+important term in this document
+×
+rare term across documents
+=
+high relevance score
+```
+
+TF-IDF was historically foundational in information retrieval systems and remains useful conceptually, but modern search engines usually prefer BM25 because it handles term frequency and document length more effectively.
+
+### BM25 (Best Matching 25)
+
+BM25 is the dominant lexical ranking function used in modern search engines such as Lucene and Elasticsearch.
+
+It improves upon TF-IDF in two major ways:
+
+1. **Term frequency saturation**
+   - Repeating a term many times provides diminishing ranking benefit.
+   - Going from 1 occurrence → 3 occurrences matters much more than 50 → 52.
+
+2. **Document length normalization**
+   - Longer documents naturally contain more terms.
+   - BM25 avoids unfairly boosting long documents simply because they contain more words.
+
+A common BM25 form is:
+
+```text
+BM25(d, q) =
+Σ over query terms t of:
+
+IDF(t) *
+(
+  f(t,d) * (k1 + 1)
+  ---------------------------------------------
+  f(t,d) + k1 * (1 - b + b * |d| / avgdl)
+)
+```
+
+where:
+
+- `f(t,d)` = term frequency in document `d`
+- `|d|` = document length
+- `avgdl` = average document length in the corpus
+- `k1` = controls TF saturation
+- `b` = controls document-length normalization
+
+Typical parameter values:
+
+```text
+k1 ≈ 1.2–2.0
+b  ≈ 0.75
+```
+
+#### BM25 Intuition
+
+Suppose two documents contain the query term `"search"`:
+
+```text
+Doc A: "search" appears 3 times
+Doc B: "search" appears 30 times
+```
+
+BM25 recognizes that:
+
+- Doc B is probably more relevant than Doc A
+- but not 10× more relevant
+
+This is the core idea behind TF saturation.
+
+BM25 also compensates for document length:
+
+```text
+Doc A length = 100 words
+Doc B length = 10,000 words
+```
+
+A match inside a tiny focused document may be more meaningful than the same frequency inside a huge document.
+
+#### Important Execution Detail
+
+BM25 does not score every document in the corpus.
+
+The execution flow is typically:
+
+```text
+query
+  ↓
+candidate retrieval via inverted index
+  ↓
+BM25 scoring on matching candidates
+  ↓
+top-K selection
+```
+
+In practice, retrieval and scoring are heavily interleaved and optimized during postings traversal.
 
 ---
 
@@ -240,7 +391,9 @@ While LSH is frequently discussed alongside vector embeddings, it is fundamental
 
 To use LSH on text, documents are first tokenized into sets of overlapping N-grams (often called **shingles**). The similarity between two textual documents is then measured by comparing these sets using **Jaccard Similarity**:
 
-$$J(A,B) = \frac{|A \cap B|}{|A \cup B|}$$
+```text
+J(A,B) = |A ∩ B| / |A ∪ B|
+```
 
 ### MinHash
 
@@ -262,9 +415,9 @@ To quickly find candidates that share high similarity without scanning all signa
 
 This creates a sharp probability transition around a configurable similarity threshold. The commonly cited probability for a candidate is:
 
-$$
-P(\text{candidate}) = 1-(1-s^r)^b
-$$
+```text
+P(candidate) = 1 - (1 - s^r)^b
+```
 
 where $s$ is the Jaccard similarity, $r$ is the number of rows per band, and $b$ is the number of bands.
 
