@@ -943,12 +943,12 @@ A cross-encoder applied to one million documents is impractical. A cross-encoder
 ```
 ┌────────────────────────────────────────────────────────────┐
 │                     APPLICATION LAYER                      │
-│ Chat • Search • Analytics • Copilot • Agents • APIs       │
+│ Chat • Search • Analytics • Copilot • Agents • APIs        │
 └─────────────────────────────┬──────────────────────────────┘
                               │
 ┌─────────────────────────────▼──────────────────────────────┐
 │                     ORCHESTRATION                          │
-│ Routing • Planning • Tool Selection • State • Verification│
+│ Routing • Planning • Tool Selection • State • Verification │
 └─────────────────────────────┬──────────────────────────────┘
                               │
 ┌─────────────────────────────▼──────────────────────────────┐
@@ -973,7 +973,7 @@ A cross-encoder applied to one million documents is impractical. A cross-encoder
                               │
 ┌─────────────────────────────▼──────────────────────────────┐
 │                CONTEXT SELECTION                           │
-│ Compression • Diversity • Deduplication • Ordering        │
+│ Compression • Diversity • Deduplication • Ordering         │
 └─────────────────────────────┬──────────────────────────────┘
                               │
 ┌─────────────────────────────▼──────────────────────────────┐
@@ -983,7 +983,7 @@ A cross-encoder applied to one million documents is impractical. A cross-encoder
                               │
 ┌─────────────────────────────▼──────────────────────────────┐
 │                   VERIFICATION                             │
-│ Grounding • Citation Validation • Contradiction Detection │
+│ Grounding • Citation Validation • Contradiction Detection  │
 └────────────────────────────────────────────────────────────┘
 ```
 
