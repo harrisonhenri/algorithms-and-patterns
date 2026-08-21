@@ -5,6 +5,8 @@ title: "Scheduling models"
 
 # Scheduling models
 
+> **Scope:** scheduling theory — how CPU time is managed among tasks (preemptive vs cooperative, threads, workload types). For concurrency paradigms and language comparisons, see [concurrency-across-languages-and-models.md](./concurrency-across-languages-and-models.md).
+
 - **Necessary:** To manage CPU time among multiple tasks and ensure responsiveness, fairness, or real-time guarantees.
 - **Unnecessary:** In very simple, single-task systems where no concurrency is required.
 
