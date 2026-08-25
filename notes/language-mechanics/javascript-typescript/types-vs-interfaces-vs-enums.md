@@ -178,3 +178,9 @@ This combines:
 - The modern flexibility of the TS type system
 - The OO contract semantics of `interface`
 - The runtime utility of `enum`, balanced against the zero-cost alternative of `as const`
+
+---
+
+## Related
+
+- [Type Systems](../../software-architecture/type-systems.md) — Comprehensive guide to structural vs nominal typing, static vs dynamic, and how these concepts apply to TypeScript's design

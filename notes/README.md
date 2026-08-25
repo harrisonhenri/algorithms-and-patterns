@@ -24,6 +24,7 @@ Study notes for this repository.
 - [Design a Digital Wallet](./interview-prep/cases/design-digital-wallet.md) - 2PC vs TCC, event sourcing, sharding, reproducibility.
 - [Scheduling models](./language-mechanics/scheduling-models.md) - processes, threads (OS/green), futures/promises, coroutines.
 - [Concurrency models](./language-mechanics/concurrency-across-languages-and-models.md) - CSP, Actor Model, Reactive Streams, Petri nets, and selection guidance.
+- [Type Systems](./software-architecture/type-systems.md) - Structural vs nominal typing, static vs dynamic checking, gradual typing, type inference, and how type systems enable polymorphism.
 - [System design estimation cheat sheet](./system-design/system-design-estimation-cheat-sheet.md) - bandwidth, storage, latency, throughput, caching, traffic assumptions, and interview math shortcuts.
 - [How Staff+ Can Develop Strategic Thinking](./software-architecture/strategic-thinking-staff-plus.md) - diagnosis, principles, execution, risk, and organizational influence.
 

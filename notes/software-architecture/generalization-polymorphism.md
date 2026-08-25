@@ -316,3 +316,9 @@ Horse
 New types can be added **without modifying the algorithm**.
 
 This idea is widely discussed in Clean Architecture and Clean Code.
+
+---
+
+## Related
+
+- [Type Systems](./type-systems.md) — How structural vs nominal typing enables polymorphism and generalization patterns
